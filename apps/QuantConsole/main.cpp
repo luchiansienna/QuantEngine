@@ -8,7 +8,7 @@
 
 #include <quant/fixed_income/Cashflow.h>
 #include <quant/fixed_income/Discounting.h>
-
+#include <quant/fixed_income/Bond.h>
 
 int main()
 {
@@ -91,4 +91,47 @@ int main()
     std::cout << "Bond cashflows\n";
     std::cout << "--------------\n";
     std::cout << "Present value: " << pv << '\n';
+
+    using quant::fixed_income::Bond;
+
+    const Bond bond(
+        1000.0,
+        0.05,
+        5.0,
+        1
+    );
+
+    const auto cashflows3 = bond.cashflows();
+
+    std::cout << "\nBond Cashflow Schedule\n";
+    std::cout << "----------------------\n";
+
+    for (const auto& cashflow : cashflows3)
+    {
+        std::cout
+            << "Year: " << cashflow.time
+            << "  Amount: " << cashflow.amount
+            << '\n';
+    }
+
+
+    const Bond bond2(
+        1000.0,
+        0.05,
+        5.0,
+        2
+    );
+
+    const auto cashflows2 = bond2.cashflows();
+
+    std::cout << "\nBond Cashflow Schedule second\n";
+    std::cout << "----------------------\n";
+
+    for (const auto& cashflow : cashflows2)
+    {
+        std::cout
+            << "Year: " << cashflow.time
+            << "  Amount: " << cashflow.amount
+            << '\n';
+    }
 }
