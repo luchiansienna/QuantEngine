@@ -10,6 +10,7 @@
 #include <quant/fixed_income/Discounting.h>
 #include <quant/fixed_income/Bond.h>
 #include <quant/fixed_income/YieldToMaturity.h>
+#include <quant/fixed_income/Duration.h>
 
 int main()
 {
@@ -174,4 +175,37 @@ int main()
         << "\nYield to maturity 3: "
         << ytm3 * 100.0
         << "%\n";
+
+
+
+    using quant::fixed_income::Duration;
+
+    const Bond durationBond(
+        1000.0,
+        0.05,
+        5.0,
+        1
+    );
+
+    const double yield = 0.05;
+
+    const double macaulayDuration =
+        Duration::macaulay(
+            durationBond,
+            yield);
+
+    const double modifiedDuration =
+        Duration::modified(
+            durationBond,
+            yield);
+
+    std::cout
+        << "\nMacaulay duration: "
+        << macaulayDuration
+        << " years\n";
+
+    std::cout
+        << "Modified duration: "
+        << modifiedDuration
+        << '\n';
 }
