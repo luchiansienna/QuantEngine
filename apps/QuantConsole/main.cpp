@@ -11,6 +11,7 @@
 #include <quant/fixed_income/Bond.h>
 #include <quant/fixed_income/YieldToMaturity.h>
 #include <quant/fixed_income/Duration.h>
+#include <quant/fixed_income/DV01.h>
 
 int main()
 {
@@ -207,5 +208,17 @@ int main()
     std::cout
         << "Modified duration: "
         << modifiedDuration
+        << '\n';
+
+    using quant::fixed_income::DV01;
+
+    const double dv01 =
+        DV01::calculate(
+            durationBond,
+            yield);
+
+    std::cout
+        << "DV01: "
+        << dv01
         << '\n';
 }
