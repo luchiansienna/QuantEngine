@@ -12,7 +12,15 @@
 #include <quant/fixed_income/YieldToMaturity.h>
 #include <quant/fixed_income/Duration.h>
 #include <quant/fixed_income/DV01.h>
-
+#include <quant/fixed_income/Convexity.h>
+//
+//Macaulay = WHEN
+//
+//Modified = HOW SENSITIVE
+//
+//DV01 = HOW MUCH MONEY PER 1bp
+//
+//Convexity = HOW MUCH THE SENSITIVITY ITSELF CHANGES
 int main()
 {
     using namespace quant;
@@ -220,5 +228,17 @@ int main()
     std::cout
         << "DV01: "
         << dv01
+        << '\n';
+
+    using quant::fixed_income::Convexity;
+
+    const double convexity =
+        Convexity::calculate(
+            durationBond,
+            yield);
+
+    std::cout
+        << "Convexity: "
+        << convexity
         << '\n';
 }
