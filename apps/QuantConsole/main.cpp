@@ -13,6 +13,7 @@
 #include <quant/fixed_income/Duration.h>
 #include <quant/fixed_income/DV01.h>
 #include <quant/fixed_income/Convexity.h>
+#include <quant/fixed_income/RateScenarioEngine.h>
 //
 //Macaulay = WHEN
 //
@@ -241,4 +242,53 @@ int main()
         << "Convexity: "
         << convexity
         << '\n';
+
+    using quant::fixed_income::RateScenarioEngine;
+
+    const std::vector<double> shocks =
+    {
+        -100.0,
+        -50.0,
+        -10.0,
+        10.0,
+        50.0,
+        100.0
+    };
+
+    const auto scenarios =
+        RateScenarioEngine::runMany(
+            durationBond,
+            yield,
+            shocks);
+
+    std::cout
+        << "\nRate Scenarios\n";
+
+    std::cout
+        << "-------------------------------------------------------------\n";
+
+    std::cout
+        << "Shock(bp)"
+        << "\tYield"
+        << "\tPrice"
+        << "\tExact P&L"
+        << "\tDuration"
+        << "\tDur+Conv\n";
+
+    for (const auto& scenario : scenarios)
+    {
+        std::cout
+            << scenario.shockBasisPoints
+            << "\t\t"
+            << scenario.shockedYield * 100.0
+            << "%\t"
+            << scenario.shockedPrice
+            << "\t"
+            << scenario.exactPnl
+            << "\t"
+            << scenario.durationPnl
+            << "\t"
+            << scenario.durationConvexityPnl
+            << '\n';
+    }
 }
