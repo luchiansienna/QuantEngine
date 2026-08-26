@@ -14,6 +14,10 @@
 #include <quant/fixed_income/DV01.h>
 #include <quant/fixed_income/Convexity.h>
 #include <quant/fixed_income/RateScenarioEngine.h>
+
+#include <quant/fixed_income/FixedIncomePortfolio.h>
+#include <quant/fixed_income/PortfolioRisk.h>
+
 //
 //Macaulay = WHEN
 //
@@ -291,4 +295,57 @@ int main()
             << scenario.durationConvexityPnl
             << '\n';
     }
+
+
+    using quant::fixed_income::BondPosition;
+    using quant::fixed_income::FixedIncomePortfolio;
+    using quant::fixed_income::PortfolioRisk;
+
+    FixedIncomePortfolio portfolio;
+
+    portfolio.add({
+        Bond(
+            1000.0,
+            0.05,
+            5.0,
+            1),
+        100.0,
+        0.05
+        });
+
+    portfolio.add({
+        Bond(
+            1000.0,
+            0.04,
+            10.0,
+            1),
+        50.0,
+        0.045
+        });
+
+    const double portfolioValue =
+        PortfolioRisk::marketValue(portfolio);
+
+    const double portfolioDv01 =
+        PortfolioRisk::dv01(portfolio);
+
+    const double pnlPlus100bp =
+        PortfolioRisk::scenarioPnl(
+            portfolio,
+            100.0);
+
+    std::cout
+        << "\nPortfolio market value: "
+        << portfolioValue
+        << '\n';
+
+    std::cout
+        << "Portfolio DV01: "
+        << portfolioDv01
+        << '\n';
+
+    std::cout
+        << "Portfolio P&L at +100bp: "
+        << pnlPlus100bp
+        << '\n';
 }
