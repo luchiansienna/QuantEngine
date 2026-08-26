@@ -9,7 +9,8 @@ add_library(QuantEngine STATIC
     src/pricing/BlackScholes.cpp
     src/pricing/ImpliedVolatility.cpp
  "include/quant/fixed_income/Cashflow.h" "include/quant/fixed_income/Discounting.h" "src/fixed_income/Discounting.cpp" "include/quant/fixed_income/Bond.h" "src/fixed_income/Bond.cpp"
-    src/fixed_income/Bond.cpp)
+    src/fixed_income/Bond.cpp "include/quant/fixed_income/YieldToMaturity.h" "src/fixed_income/YieldToMaturity.cpp"
+  src/fixed_income/YieldToMaturity.cpp)
 
 target_include_directories(
     QuantEngine

@@ -9,6 +9,7 @@
 #include <quant/fixed_income/Cashflow.h>
 #include <quant/fixed_income/Discounting.h>
 #include <quant/fixed_income/Bond.h>
+#include <quant/fixed_income/YieldToMaturity.h>
 
 int main()
 {
@@ -134,4 +135,43 @@ int main()
             << "  Amount: " << cashflow.amount
             << '\n';
     }
+
+    using quant::fixed_income::YieldToMaturity;
+
+    const Bond ytmBond(
+        1000.0,
+        0.05,
+        5.0,
+        1
+    );
+
+    const double ytm =
+        YieldToMaturity::calculate(
+            ytmBond,
+            1000.0);
+
+    std::cout
+        << "\nYield to maturity: "
+        << ytm * 100.0
+        << "%\n";
+
+    const double ytm2 =
+        YieldToMaturity::calculate(
+            ytmBond,
+            950.0);
+
+    std::cout
+        << "\nYield to maturity 2: "
+        << ytm2 * 100.0
+        << "%\n";
+
+    const double ytm3 =
+        YieldToMaturity::calculate(
+            ytmBond,
+            1050.0);
+
+    std::cout
+        << "\nYield to maturity 3: "
+        << ytm3 * 100.0
+        << "%\n";
 }
