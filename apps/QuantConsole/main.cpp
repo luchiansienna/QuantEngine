@@ -17,6 +17,7 @@
 
 #include <quant/fixed_income/FixedIncomePortfolio.h>
 #include <quant/fixed_income/PortfolioRisk.h>
+#include <quant/fixed_income/YieldCurve.h>
 
 //
 //Macaulay = WHEN
@@ -348,4 +349,35 @@ int main()
         << "Portfolio P&L at +100bp: "
         << pnlPlus100bp
         << '\n';
+
+    using quant::fixed_income::YieldCurve;
+    using quant::fixed_income::YieldCurvePoint;
+
+    const YieldCurve yieldCurve({
+        {1.0, 0.0400},
+        {2.0, 0.0410},
+        {5.0, 0.0440},
+        {10.0, 0.0460}
+        });
+
+    std::cout << "\nYield Curve\n";
+    std::cout << "-----------\n";
+
+    std::cout
+        << "3Y interpolated rate: "
+        << yieldCurve.rate(3.0) * 100.0
+        << "%\n";
+
+    std::cout
+        << "3Y discount factor: "
+        << yieldCurve.discountFactor(3.0)
+        << '\n';
+
+    const YieldCurve shiftedCurve =
+        yieldCurve.parallelShift(100.0);
+
+    std::cout
+        << "3Y rate after +100bp: "
+        << shiftedCurve.rate(3.0) * 100.0
+        << "%\n";
 }
