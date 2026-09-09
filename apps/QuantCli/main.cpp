@@ -6,6 +6,8 @@
 #include <quant/fixed_income/RateScenarioEngine.h>
 
 #include <cstdlib>
+#include <cmath>
+#include <sstream>
 #include <exception>
 #include <iomanip>
 #include <iostream>
@@ -29,7 +31,7 @@ namespace
     {
         char* end = nullptr;
         const double result = std::strtod(value, &end);
-        if (end == value || *end != '\0')
+        if (end == value || *end != '\0' || !std::isfinite(result))
             throw std::invalid_argument("Invalid value for " + name + ".");
         return result;
     }
@@ -47,7 +49,10 @@ namespace
         args.faceValue = parseDouble(argv[1], "faceValue");
         args.couponRate = parseDouble(argv[2], "couponRate");
         args.maturityYears = parseDouble(argv[3], "maturityYears");
-        args.paymentsPerYear = std::stoi(argv[4]);
+        const auto frequency = parseDouble(argv[4], "paymentsPerYear");
+        if (frequency != 1 && frequency != 2 && frequency != 4 && frequency != 12)
+            throw std::invalid_argument("Unsupported payment frequency.");
+        args.paymentsPerYear = static_cast<int>(frequency);
         args.yield = parseDouble(argv[5], "yield");
 
         if (argc > 6)
@@ -57,6 +62,19 @@ namespace
                 args.shocksBasisPoints.push_back(parseDouble(argv[index], "shockBasisPoints"));
         }
 
+        if (args.faceValue <= 0 || args.faceValue > 1e12 ||
+            args.couponRate < 0 || args.couponRate > 1 ||
+            args.maturityYears <= 0 || args.maturityYears > 100 ||
+            args.yield < -0.5 || args.yield > 1 ||
+            args.shocksBasisPoints.size() > 25)
+            throw std::invalid_argument("Inputs outside supported bounds.");
+        const double payments = args.maturityYears * args.paymentsPerYear;
+        if (payments < 1 || std::abs(payments - std::round(payments)) > 1e-8)
+            throw std::invalid_argument("Maturity must contain a whole number of coupon periods.");
+        for (double shock : args.shocksBasisPoints)
+            if (args.yield + shock * 0.0001 < -0.5 ||
+                args.yield + shock * 0.0001 > 1)
+                throw std::invalid_argument("Shocked yield outside supported bounds.");
         return args;
     }
 
@@ -82,26 +100,26 @@ namespace
             args.shocksBasisPoints);
 
         std::cout << std::setprecision(15)
-                  << "{\"instrument\":{"
-                  << "\"type\":\"FixedRateBond\","
-                  << "\"faceValue\":" << args.faceValue << ','
-                  << "\"couponRate\":" << args.couponRate << ','
-                  << "\"maturityYears\":" << args.maturityYears << ','
-                  << "\"paymentsPerYear\":" << args.paymentsPerYear << ','
-                  << "\"yield\":" << args.yield
-                  << "},\"metrics\":{"
-                  << "\"presentValue\":" << price << ','
-                  << "\"macaulayDuration\":" << macaulayDuration << ','
-                  << "\"modifiedDuration\":" << modifiedDuration << ','
-                  << "\"dv01\":" << dv01 << ','
-                  << "\"convexity\":" << convexity
-                  << "},\"cashflows\":[";
+            << "{\"instrument\":{"
+            << "\"type\":\"FixedRateBond\","
+            << "\"faceValue\":" << args.faceValue << ','
+            << "\"couponRate\":" << args.couponRate << ','
+            << "\"maturityYears\":" << args.maturityYears << ','
+            << "\"paymentsPerYear\":" << args.paymentsPerYear << ','
+            << "\"yield\":" << args.yield
+            << "},\"metrics\":{"
+            << "\"presentValue\":" << price << ','
+            << "\"macaulayDuration\":" << macaulayDuration << ','
+            << "\"modifiedDuration\":" << modifiedDuration << ','
+            << "\"dv01\":" << dv01 << ','
+            << "\"convexity\":" << convexity
+            << "},\"cashflows\":[";
 
         for (std::size_t index = 0; index < cashflows.size(); ++index)
         {
             if (index > 0) std::cout << ',';
             std::cout << "{\"timeYears\":" << cashflows[index].time
-                      << ",\"amount\":" << cashflows[index].amount << '}';
+                << ",\"amount\":" << cashflows[index].amount << '}';
         }
 
         std::cout << "],\"scenarios\":[";
@@ -110,13 +128,13 @@ namespace
             if (index > 0) std::cout << ',';
             const auto& scenario = scenarios[index];
             std::cout << "{\"shockBasisPoints\":" << scenario.shockBasisPoints
-                      << ",\"shockedYield\":" << scenario.shockedYield
-                      << ",\"originalPrice\":" << scenario.originalPrice
-                      << ",\"shockedPrice\":" << scenario.shockedPrice
-                      << ",\"exactPnl\":" << scenario.exactPnl
-                      << ",\"durationPnl\":" << scenario.durationPnl
-                      << ",\"durationConvexityPnl\":" << scenario.durationConvexityPnl
-                      << '}';
+                << ",\"shockedYield\":" << scenario.shockedYield
+                << ",\"originalPrice\":" << scenario.originalPrice
+                << ",\"shockedPrice\":" << scenario.shockedPrice
+                << ",\"exactPnl\":" << scenario.exactPnl
+                << ",\"durationPnl\":" << scenario.durationPnl
+                << ",\"durationConvexityPnl\":" << scenario.durationConvexityPnl
+                << '}';
         }
         std::cout << "]}";
     }
@@ -124,6 +142,32 @@ namespace
 
 int main(int argc, char* argv[])
 {
+    if (argc == 2 && std::string(argv[1]) == "--server")
+    {
+        // One whitespace-separated numeric request per line; one JSON response per line.
+        std::string line;
+        while (std::getline(std::cin, line))
+        {
+            try
+            {
+                std::istringstream stream(line);
+                std::vector<std::string> tokens{ "QuantCli" };
+                std::string token;
+                while (stream >> token) tokens.push_back(token);
+                std::vector<char*> pointers;
+                for (auto& text : tokens) pointers.push_back(text.data());
+                writeJson(parseArguments(static_cast<int>(pointers.size()), pointers.data()));
+                std::cout << std::endl;
+            }
+            catch (const std::exception& exception)
+            {
+                std::cerr << exception.what() << std::endl;
+                // Constant JSON avoids unescaped exception text on the protocol stream.
+                std::cout << "{\"error\":\"Invalid bond inputs; check coupon periods and yield bounds (-50% to 100%).\"}" << std::endl;
+            }
+        }
+        return 0;
+    }
     try
     {
         const auto args = parseArguments(argc, argv);
