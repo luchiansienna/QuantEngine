@@ -1,97 +1,81 @@
-#include <iostream>
 #include <iomanip>
+#include <iostream>
+#include <string_view>
+#include <vector>
 
 #include <quant/instruments/EuropeanOption.h>
 #include <quant/pricing/BlackScholes.h>
 #include <quant/pricing/ImpliedVolatility.h>
-#include <vector>
 
-#include <quant/fixed_income/Cashflow.h>
-#include <quant/fixed_income/Discounting.h>
 #include <quant/fixed_income/Bond.h>
-#include <quant/fixed_income/YieldToMaturity.h>
+#include <quant/fixed_income/Cashflow.h>
+#include <quant/fixed_income/Convexity.h>
+#include <quant/fixed_income/Discounting.h>
 #include <quant/fixed_income/Duration.h>
 #include <quant/fixed_income/DV01.h>
-#include <quant/fixed_income/Convexity.h>
-#include <quant/fixed_income/RateScenarioEngine.h>
-
 #include <quant/fixed_income/FixedIncomePortfolio.h>
 #include <quant/fixed_income/PortfolioRisk.h>
+#include <quant/fixed_income/RateScenarioEngine.h>
 #include <quant/fixed_income/YieldCurve.h>
+#include <quant/fixed_income/YieldToMaturity.h>
 
-//
-//Macaulay = WHEN
-//
-//Modified = HOW SENSITIVE
-//
-//DV01 = HOW MUCH MONEY PER 1bp
-//
-//Convexity = HOW MUCH THE SENSITIVITY ITSELF CHANGES
+namespace
+{
+    void printSection(
+        const std::string_view title,
+        const std::string_view explanation)
+    {
+        std::cout
+            << "\n" << title << '\n'
+            << std::string(title.size(), '-') << '\n'
+            << explanation << "\n\n";
+    }
+}
+
 int main()
 {
     using namespace quant;
     using namespace quant::pricing;
-
-    EuropeanOption option(
-        OptionType::Call,
-        100.0,
-        100.0,
-        0.05,
-        0.20,
-        1.0
-    );
-
-    constexpr double marketPrice = 10.4506;
-
-    const double impliedVolatility =
-        ImpliedVolatility::calculate(
-            option,
-            marketPrice);
+    using namespace quant::fixed_income;
 
     std::cout
         << std::fixed
         << std::setprecision(4);
 
-    std::cout
-        << "Price: "
-        << BlackScholes::price(option)
-        << '\n';
+    printSection(
+        "OPTION PRICING AND GREEKS",
+        "Black-Scholes fair value and sensitivities for a European call option.");
+
+    const EuropeanOption option(
+        OptionType::Call,
+        100.0, // Spot price
+        100.0, // Strike price
+        0.05,  // Risk-free rate
+        0.20,  // Volatility
+        1.0);  // Time to maturity
+
+    constexpr double marketPrice = 10.4506;
+
+    const double impliedVolatility =
+        ImpliedVolatility::calculate(option, marketPrice);
 
     std::cout
-        << "Delta: "
-        << BlackScholes::delta(option)
-        << '\n';
+        << "Option price (estimated fair value): "
+        << BlackScholes::price(option) << '\n'
+        << "Delta (price change for a 1-unit move in the underlying): "
+        << BlackScholes::delta(option) << '\n'
+        << "Gamma (how much Delta changes as the underlying moves): "
+        << BlackScholes::gamma(option) << '\n'
+        << "Vega (price change for a 1 percentage-point volatility move): "
+        << BlackScholes::vega(option) << '\n'
+        << "Theta (estimated value lost per day as time passes): "
+        << BlackScholes::theta(option) << '\n'
+        << "Rho (price sensitivity to interest-rate changes): "
+        << BlackScholes::rho(option) << '\n'
+        << "Implied volatility (volatility implied by the market price): "
+        << impliedVolatility * 100.0 << "%\n";
 
-    std::cout
-        << "Gamma: "
-        << BlackScholes::gamma(option)
-        << '\n';
-
-    std::cout
-        << "Vega: "
-        << BlackScholes::vega(option)
-        << '\n';
-
-    std::cout
-        << "Theta: "
-        << BlackScholes::theta(option)
-        << '\n';
-
-    std::cout
-        << "Rho: "
-        << BlackScholes::rho(option)
-        << '\n';
-
-    std::cout
-        << "Implied volatility: "
-        << impliedVolatility * 100.0
-        << "%\n";
-
-    using quant::fixed_income::Cashflow;
-    using quant::fixed_income::Discounting;
-
-    std::vector<Cashflow> cashflows =
-    {
+    const std::vector<Cashflow> cashflows{
         {1.0, 50.0},
         {2.0, 50.0},
         {3.0, 50.0},
@@ -100,158 +84,118 @@ int main()
     };
 
     const double pv =
-        Discounting::presentValue(
-            cashflows,
-            0.05);
+        Discounting::presentValue(cashflows, 0.05);
 
-    std::cout << '\n';
-    std::cout << "Bond cashflows\n";
-    std::cout << "--------------\n";
-    std::cout << "Present value: " << pv << '\n';
+    printSection(
+        "BOND PRESENT VALUE",
+        "Today's value of the bond's future coupons and principal payment.");
 
-    using quant::fixed_income::Bond;
+    std::cout
+        << "Present value (all future cashflows discounted to today): "
+        << pv << '\n';
 
-    const Bond bond(
+    const Bond annualBond(
         1000.0,
         0.05,
         5.0,
-        1
-    );
+        1);
 
-    const auto cashflows3 = bond.cashflows();
+    const auto annualCashflows = annualBond.cashflows();
 
-    std::cout << "\nBond Cashflow Schedule\n";
-    std::cout << "----------------------\n";
+    printSection(
+        "ANNUAL BOND CASHFLOW SCHEDULE",
+        "The bond pays one coupon each year and repays principal at maturity.");
 
-    for (const auto& cashflow : cashflows3)
+    for (const auto& cashflow : annualCashflows)
     {
         std::cout
-            << "Year: " << cashflow.time
-            << "  Amount: " << cashflow.amount
+            << "Payment time: " << cashflow.time
+            << " years | Cashflow amount: " << cashflow.amount
             << '\n';
     }
 
-
-    const Bond bond2(
+    const Bond semiAnnualBond(
         1000.0,
         0.05,
         5.0,
-        2
-    );
+        2);
 
-    const auto cashflows2 = bond2.cashflows();
+    const auto semiAnnualCashflows = semiAnnualBond.cashflows();
 
-    std::cout << "\nBond Cashflow Schedule second\n";
-    std::cout << "----------------------\n";
+    printSection(
+        "SEMI-ANNUAL BOND CASHFLOW SCHEDULE",
+        "The bond pays two coupons per year and repays principal at maturity.");
 
-    for (const auto& cashflow : cashflows2)
+    for (const auto& cashflow : semiAnnualCashflows)
     {
         std::cout
-            << "Year: " << cashflow.time
-            << "  Amount: " << cashflow.amount
+            << "Payment time: " << cashflow.time
+            << " years | Cashflow amount: " << cashflow.amount
             << '\n';
     }
-
-    using quant::fixed_income::YieldToMaturity;
 
     const Bond ytmBond(
         1000.0,
         0.05,
         5.0,
-        1
-    );
+        1);
 
-    const double ytm =
-        YieldToMaturity::calculate(
-            ytmBond,
-            1000.0);
+    const double parYtm =
+        YieldToMaturity::calculate(ytmBond, 1000.0);
 
-    std::cout
-        << "\nYield to maturity: "
-        << ytm * 100.0
-        << "%\n";
+    const double discountYtm =
+        YieldToMaturity::calculate(ytmBond, 950.0);
 
-    const double ytm2 =
-        YieldToMaturity::calculate(
-            ytmBond,
-            950.0);
+    const double premiumYtm =
+        YieldToMaturity::calculate(ytmBond, 1050.0);
+
+    printSection(
+        "YIELD TO MATURITY",
+        "Annual return if the bond is held to maturity and all payments are made.");
 
     std::cout
-        << "\nYield to maturity 2: "
-        << ytm2 * 100.0
-        << "%\n";
+        << "At par (price equals face value): "
+        << parYtm * 100.0 << "%\n"
+        << "At a discount (price 950 is below face value): "
+        << discountYtm * 100.0 << "%\n"
+        << "At a premium (price 1050 is above face value): "
+        << premiumYtm * 100.0 << "%\n";
 
-    const double ytm3 =
-        YieldToMaturity::calculate(
-            ytmBond,
-            1050.0);
-
-    std::cout
-        << "\nYield to maturity 3: "
-        << ytm3 * 100.0
-        << "%\n";
-
-
-
-    using quant::fixed_income::Duration;
-
-    const Bond durationBond(
+    const Bond riskBond(
         1000.0,
         0.05,
         5.0,
-        1
-    );
+        1);
 
-    const double yield = 0.05;
+    constexpr double yield = 0.05;
 
     const double macaulayDuration =
-        Duration::macaulay(
-            durationBond,
-            yield);
+        Duration::macaulay(riskBond, yield);
 
     const double modifiedDuration =
-        Duration::modified(
-            durationBond,
-            yield);
-
-    std::cout
-        << "\nMacaulay duration: "
-        << macaulayDuration
-        << " years\n";
-
-    std::cout
-        << "Modified duration: "
-        << modifiedDuration
-        << '\n';
-
-    using quant::fixed_income::DV01;
+        Duration::modified(riskBond, yield);
 
     const double dv01 =
-        DV01::calculate(
-            durationBond,
-            yield);
-
-    std::cout
-        << "DV01: "
-        << dv01
-        << '\n';
-
-    using quant::fixed_income::Convexity;
+        DV01::calculate(riskBond, yield);
 
     const double convexity =
-        Convexity::calculate(
-            durationBond,
-            yield);
+        Convexity::calculate(riskBond, yield);
+
+    printSection(
+        "BOND INTEREST-RATE RISK",
+        "Measures when cashflows arrive and how the bond price reacts to rate moves.");
 
     std::cout
-        << "Convexity: "
-        << convexity
-        << '\n';
+        << "Macaulay duration (weighted average time to receive cashflows): "
+        << macaulayDuration << " years\n"
+        << "Modified duration (approximate % price sensitivity to a 1% rate move): "
+        << modifiedDuration << '\n'
+        << "DV01 (money gained or lost for a 1-basis-point rate move): "
+        << dv01 << '\n'
+        << "Convexity (how much the bond's rate sensitivity changes): "
+        << convexity << '\n';
 
-    using quant::fixed_income::RateScenarioEngine;
-
-    const std::vector<double> shocks =
-    {
+    const std::vector<double> shocks{
         -100.0,
         -50.0,
         -10.0,
@@ -261,65 +205,47 @@ int main()
     };
 
     const auto scenarios =
-        RateScenarioEngine::runMany(
-            durationBond,
-            yield,
-            shocks);
+        RateScenarioEngine::runMany(riskBond, yield, shocks);
+
+    printSection(
+        "INTEREST-RATE SCENARIOS",
+        "Negative shocks mean falling rates; positive shocks mean rising rates.");
 
     std::cout
-        << "\nRate Scenarios\n";
-
-    std::cout
-        << "-------------------------------------------------------------\n";
-
-    std::cout
-        << "Shock(bp)"
-        << "\tYield"
-        << "\tPrice"
-        << "\tExact P&L"
-        << "\tDuration"
-        << "\tDur+Conv\n";
+        << "Exact P&L fully reprices the bond. Duration and convexity provide estimates.\n\n"
+        << std::left
+        << std::setw(12) << "Shock(bp)"
+        << std::setw(12) << "Yield(%)"
+        << std::setw(14) << "Price"
+        << std::setw(14) << "Exact P&L"
+        << std::setw(16) << "Duration est."
+        << std::setw(18) << "Dur+Conv est."
+        << '\n'
+        << std::string(86, '-') << '\n';
 
     for (const auto& scenario : scenarios)
     {
         std::cout
-            << scenario.shockBasisPoints
-            << "\t\t"
-            << scenario.shockedYield * 100.0
-            << "%\t"
-            << scenario.shockedPrice
-            << "\t"
-            << scenario.exactPnl
-            << "\t"
-            << scenario.durationPnl
-            << "\t"
-            << scenario.durationConvexityPnl
+            << std::left
+            << std::setw(12) << scenario.shockBasisPoints
+            << std::setw(12) << scenario.shockedYield * 100.0
+            << std::setw(14) << scenario.shockedPrice
+            << std::setw(14) << scenario.exactPnl
+            << std::setw(16) << scenario.durationPnl
+            << std::setw(18) << scenario.durationConvexityPnl
             << '\n';
     }
-
-
-    using quant::fixed_income::BondPosition;
-    using quant::fixed_income::FixedIncomePortfolio;
-    using quant::fixed_income::PortfolioRisk;
 
     FixedIncomePortfolio portfolio;
 
     portfolio.add({
-        Bond(
-            1000.0,
-            0.05,
-            5.0,
-            1),
+        Bond(1000.0, 0.05, 5.0, 1),
         100.0,
         0.05
         });
 
     portfolio.add({
-        Bond(
-            1000.0,
-            0.04,
-            10.0,
-            1),
+        Bond(1000.0, 0.04, 10.0, 1),
         50.0,
         0.045
         });
@@ -331,27 +257,19 @@ int main()
         PortfolioRisk::dv01(portfolio);
 
     const double pnlPlus100bp =
-        PortfolioRisk::scenarioPnl(
-            portfolio,
-            100.0);
+        PortfolioRisk::scenarioPnl(portfolio, 100.0);
+
+    printSection(
+        "FIXED-INCOME PORTFOLIO RISK",
+        "Aggregated value and interest-rate sensitivity of all bond positions.");
 
     std::cout
-        << "\nPortfolio market value: "
-        << portfolioValue
-        << '\n';
-
-    std::cout
-        << "Portfolio DV01: "
-        << portfolioDv01
-        << '\n';
-
-    std::cout
-        << "Portfolio P&L at +100bp: "
-        << pnlPlus100bp
-        << '\n';
-
-    using quant::fixed_income::YieldCurve;
-    using quant::fixed_income::YieldCurvePoint;
+        << "Portfolio market value (current value of all positions): "
+        << portfolioValue << '\n'
+        << "Portfolio DV01 (money sensitivity to a 1-bp rate move): "
+        << portfolioDv01 << '\n'
+        << "Portfolio P&L after all rates rise by 100 bp: "
+        << pnlPlus100bp << '\n';
 
     const YieldCurve yieldCurve({
         {1.0, 0.0400},
@@ -360,24 +278,22 @@ int main()
         {10.0, 0.0460}
         });
 
-    std::cout << "\nYield Curve\n";
-    std::cout << "-----------\n";
+    printSection(
+        "YIELD CURVE ANALYSIS",
+        "Rates by maturity, future-cashflow discounting, and rate-shift scenarios.");
 
     std::cout
-        << "3Y interpolated rate: "
-        << yieldCurve.rate(3.0) * 100.0
-        << "%\n";
-
-    std::cout
-        << "3Y discount factor: "
-        << yieldCurve.discountFactor(3.0)
-        << '\n';
+        << "3Y interpolated rate (estimated between known curve points): "
+        << yieldCurve.rate(3.0) * 100.0 << "%\n"
+        << "3Y discount factor (today's value of 1 unit received in 3 years): "
+        << yieldCurve.discountFactor(3.0) << '\n';
 
     const YieldCurve shiftedCurve =
         yieldCurve.parallelShift(100.0);
 
     std::cout
-        << "3Y rate after +100bp: "
-        << shiftedCurve.rate(3.0) * 100.0
-        << "%\n";
+        << "3Y rate after +100-bp parallel shift (all rates rise by 1%): "
+        << shiftedCurve.rate(3.0) * 100.0 << "%\n";
+
+    return 0;
 }
