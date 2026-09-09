@@ -7,3 +7,6 @@
 /.vs/QuantEngine.slnx/v18
 /.vs/QuantEngine.slnx/config
 /.vs
+/apps/QuantWebApi/obj
+/apps/QuantWebApi/bin/Debug/net8.0
+/apps/QuantWebApi/.vs/QuantWebApi.slnx

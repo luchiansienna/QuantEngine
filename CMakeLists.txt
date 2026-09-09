@@ -20,4 +20,5 @@ project(QuantEngine LANGUAGES CXX)
 
 add_subdirectory(QuantEngine)
 add_subdirectory(apps/QuantConsole)
+add_subdirectory(apps/QuantCli)
 add_subdirectory(tests)

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bond Risk Workbench</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="mark">Q</span><span>QuantEngine</span></div>
+    <div class="engine-state"><span></span> C++ engine via .NET 8</div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <p class="eyebrow">FIXED INCOME LAB</p>
+      <h1>Bond Risk Workbench</h1>
+      <p>Change the instrument or yield, then inspect valuation and rate-shock behaviour calculated by the native engine.</p>
+    </section>
+
+    <div class="workspace">
+      <form id="bond-form" class="panel controls">
+        <div class="panel-heading"><h2>Instrument</h2><button type="button" id="reset">Reset</button></div>
+        <label>Face value <span>currency units</span><input name="faceValue" type="number" value="1000" min="1" step="100" required></label>
+        <label>Coupon rate <span>% annually</span><input name="couponRate" type="number" value="5" min="0" max="100" step="0.1" required></label>
+        <label>Maturity <span>years</span><input name="maturityYears" type="number" value="5" min="0.1" max="100" step="0.5" required></label>
+        <label>Coupon frequency <span>payments / year</span>
+          <select name="paymentsPerYear"><option value="1">Annual</option><option value="2" selected>Semi-annual</option><option value="4">Quarterly</option><option value="12">Monthly</option></select>
+        </label>
+        <label>Market yield <span>% annually</span><input name="yield" type="number" value="4.5" min="-99" max="100" step="0.1" required></label>
+        <button class="primary" type="submit">Run analysis <span>→</span></button>
+        <p id="error" role="alert"></p>
+      </form>
+
+      <section class="results">
+        <div id="metrics" class="metrics" aria-live="polite"></div>
+        <div class="panel chart-panel">
+          <div class="panel-heading"><div><p class="eyebrow">SCENARIO P&amp;L</p><h2>Yield shock profile</h2></div><div class="legend"><i></i> Exact revaluation</div></div>
+          <div id="chart" class="chart"></div>
+          <p class="chart-note">Bond prices generally move inversely to yields. Convexity makes that relationship curved rather than linear.</p>
+        </div>
+        <div class="panel table-panel">
+          <div class="panel-heading"><div><p class="eyebrow">MODEL COMPARISON</p><h2>Scenario details</h2></div></div>
+          <div class="table-scroll"><table><thead><tr><th>Shock</th><th>Shocked yield</th><th>Price</th><th>Exact P&amp;L</th><th>Duration</th><th>Duration + convexity</th></tr></thead><tbody id="scenario-body"></tbody></table></div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

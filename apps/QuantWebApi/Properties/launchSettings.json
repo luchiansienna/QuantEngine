@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "QuantWebApi": {
+        "commandName": "Project",
+        "launchBrowser": true,
+        "applicationUrl": "https://localhost:51595;http://localhost:51596",
+        "environmentVariables": {
+            "ASPNETCORE_ENVIRONMENT": "Development"
+        }
+    }
+  }
+}
