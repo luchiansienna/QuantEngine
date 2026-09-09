@@ -1,0 +1,9 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/QuantEngine.slnx/FileContentIndex
+/out/build/x64-debug
+/.vs/QuantEngine.slnx/v18
+/.vs/QuantEngine.slnx/config
+/.vs
