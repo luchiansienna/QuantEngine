@@ -9,3 +9,11 @@ export type BondAnalysisResponse = {
   scenarios: RateScenario[]
 }
 export type RateScenario = { shockBasisPoints: number; shockedYield: number; originalPrice: number; shockedPrice: number; exactPnl: number; durationPnl: number; durationConvexityPnl: number }
+
+export type OptionAnalysisRequest = { optionType: 'Call' | 'Put'; spot: number; strike: number; riskFreeRate: number; volatility: number; timeToExpiry: number; marketPrice: number }
+export type OptionAnalysisResponse = {
+  instrument: OptionAnalysisRequest & { type: string }
+  metrics: { modelPrice: number; intrinsicValue: number; impliedVolatility: number; delta: number; gamma: number; vegaPerPercentagePoint: number; thetaPerDay: number; rhoPerPercentagePoint: number }
+  spotScenarios: Array<{ spot: number; modelPrice: number; payoffAtExpiry: number }>
+  volatilityScenarios: Array<{ volatility: number; modelPrice: number; pnl: number }>
+}

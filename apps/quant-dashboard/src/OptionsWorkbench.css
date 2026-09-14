@@ -1,0 +1,23 @@
+.topbar nav button {
+  padding: 6px 11px;
+  color: var(--muted);
+  font-size: .78rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+}
+.topbar nav button:disabled { opacity: .38; cursor: not-allowed; }
+.topbar nav button.active { color: var(--ink); background: #1a292f; }
+.option-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.dual-legend { display: flex; gap: 16px; color: var(--muted); font-size: .75rem; }
+.dual-legend span { display: flex; align-items: center; gap: 6px; }
+.dual-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.blue-dot { background: var(--blue); }
+.green-dot { background: var(--accent); }
+.payoff-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 7 6; }
+@media (max-width: 1050px) { .option-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 680px) {
+  .option-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .option-metrics .metric:first-child { grid-column: 1 / -1; }
+  .dual-legend { gap: 9px; flex-direction: column; }
+}

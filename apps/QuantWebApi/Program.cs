@@ -40,6 +40,32 @@ app.MapPost("/api/bonds/analyse", async Task<IResult> (
     }
 });
 
+app.MapPost("/api/options/analyse", async Task<IResult> (
+    OptionAnalysisRequest request,
+    QuantEngineClient engine,
+    CancellationToken cancellationToken) =>
+{
+    var validationError = request.Validate();
+    if (validationError is not null)
+        return Results.ValidationProblem(validationError);
+
+    try
+    {
+        var json = await engine.AnalyseOptionAsync(request, cancellationToken);
+        return Results.Text(json, "application/json");
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.Problem(statusCode: 400, title: "Invalid option inputs",
+            detail: exception.Message);
+    }
+    catch (TimeoutException)
+    {
+        return Results.Problem(statusCode: 504, title: "Pricing timeout",
+            detail: "The pricing worker did not respond within the configured timeout.");
+    }
+});
+
 app.MapFallbackToFile("index.html");
 
 app.Run();

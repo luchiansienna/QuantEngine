@@ -5,7 +5,11 @@
 #include <quant/fixed_income/Discounting.h>
 #include <quant/fixed_income/Duration.h>
 #include <quant/fixed_income/RateScenarioEngine.h>
+#include <quant/instruments/EuropeanOption.h>
+#include <quant/pricing/BlackScholes.h>
+#include <quant/pricing/ImpliedVolatility.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cmath>
 #include <sstream>
@@ -27,6 +31,17 @@ namespace
         double yield = 0.045;
         std::vector<quant::fixed_income::YieldCurvePoint> curve;
         std::vector<double> shocksBasisPoints{ -100.0, -50.0, -25.0, 0.0, 25.0, 50.0, 100.0 };
+    };
+
+    struct OptionArguments
+    {
+        quant::OptionType type = quant::OptionType::Call;
+        double spot = 100.0;
+        double strike = 100.0;
+        double riskFreeRate = 0.05;
+        double volatility = 0.20;
+        double timeToExpiry = 1.0;
+        double marketPrice = 10.4506;
     };
 
     double parseDouble(const char* value, const std::string& name)
@@ -97,6 +112,39 @@ namespace
                 if (point.rate + shock * .0001 < -0.5 || point.rate + shock * .0001 > 1)
                     throw std::invalid_argument("Shifted curve outside bounds.");
         }
+        return args;
+    }
+
+    OptionArguments parseOptionArguments(const std::vector<std::string>& tokens)
+    {
+        if (tokens.size() != 7)
+            throw std::invalid_argument("Option requires type, spot, strike, rate, volatility, expiry and market price.");
+
+        OptionArguments args;
+        if (tokens[0] == "call") args.type = quant::OptionType::Call;
+        else if (tokens[0] == "put") args.type = quant::OptionType::Put;
+        else throw std::invalid_argument("Option type must be call or put.");
+
+        args.spot = parseDouble(tokens[1].c_str(), "spot");
+        args.strike = parseDouble(tokens[2].c_str(), "strike");
+        args.riskFreeRate = parseDouble(tokens[3].c_str(), "riskFreeRate");
+        args.volatility = parseDouble(tokens[4].c_str(), "volatility");
+        args.timeToExpiry = parseDouble(tokens[5].c_str(), "timeToExpiry");
+        args.marketPrice = parseDouble(tokens[6].c_str(), "marketPrice");
+
+        if (args.spot <= 0 || args.spot > 1e9 || args.strike <= 0 || args.strike > 1e9 ||
+            args.riskFreeRate < -0.5 || args.riskFreeRate > 1 ||
+            args.volatility <= 0 || args.volatility > 5 ||
+            args.timeToExpiry <= 0 || args.timeToExpiry > 100 || args.marketPrice <= 0)
+            throw std::invalid_argument("Option inputs outside supported bounds.");
+
+        const double discountedStrike = args.strike * std::exp(-args.riskFreeRate * args.timeToExpiry);
+        const double lower = args.type == quant::OptionType::Call
+            ? std::max(0.0, args.spot - discountedStrike)
+            : std::max(0.0, discountedStrike - args.spot);
+        const double upper = args.type == quant::OptionType::Call ? args.spot : discountedStrike;
+        if (args.marketPrice <= lower || args.marketPrice >= upper)
+            throw std::invalid_argument("Market price violates option no-arbitrage bounds.");
         return args;
     }
 
@@ -205,6 +253,59 @@ namespace
         }
         std::cout << "]}";
     }
+
+    void writeOptionJson(const OptionArguments& args)
+    {
+        using quant::EuropeanOption;
+        using quant::pricing::BlackScholes;
+        using quant::pricing::ImpliedVolatility;
+
+        const EuropeanOption option(args.type, args.spot, args.strike, args.riskFreeRate,
+            args.volatility, args.timeToExpiry);
+        const double modelPrice = BlackScholes::price(option);
+
+        std::cout << std::setprecision(15)
+            << "{\"instrument\":{\"type\":\"EuropeanOption\",\"optionType\":\""
+            << (args.type == quant::OptionType::Call ? "Call" : "Put") << "\","
+            << "\"spot\":" << args.spot << ",\"strike\":" << args.strike
+            << ",\"riskFreeRate\":" << args.riskFreeRate << ",\"volatility\":" << args.volatility
+            << ",\"timeToExpiry\":" << args.timeToExpiry << ",\"marketPrice\":" << args.marketPrice
+            << "},\"metrics\":{\"modelPrice\":" << modelPrice
+            << ",\"intrinsicValue\":" << (args.type == quant::OptionType::Call
+                ? std::max(args.spot - args.strike, 0.0) : std::max(args.strike - args.spot, 0.0))
+            << ",\"impliedVolatility\":" << ImpliedVolatility::calculate(option, args.marketPrice)
+            << ",\"delta\":" << BlackScholes::delta(option)
+            << ",\"gamma\":" << BlackScholes::gamma(option)
+            << ",\"vegaPerPercentagePoint\":" << BlackScholes::vega(option) / 100.0
+            << ",\"thetaPerDay\":" << BlackScholes::theta(option) / 365.0
+            << ",\"rhoPerPercentagePoint\":" << BlackScholes::rho(option) / 100.0
+            << "},\"spotScenarios\":[";
+
+        const double spotMultipliers[]{.70, .80, .90, 1.00, 1.10, 1.20, 1.30};
+        for (std::size_t index = 0; index < std::size(spotMultipliers); ++index)
+        {
+            if (index) std::cout << ',';
+            const double spot = args.spot * spotMultipliers[index];
+            const EuropeanOption scenario(args.type, spot, args.strike, args.riskFreeRate,
+                args.volatility, args.timeToExpiry);
+            const double payoff = args.type == quant::OptionType::Call
+                ? std::max(spot - args.strike, 0.0) : std::max(args.strike - spot, 0.0);
+            std::cout << "{\"spot\":" << spot << ",\"modelPrice\":" << BlackScholes::price(scenario)
+                << ",\"payoffAtExpiry\":" << payoff << '}';
+        }
+
+        std::cout << "],\"volatilityScenarios\":[";
+        const double volatilityShifts[]{-.10, -.05, 0.0, .05, .10};
+        for (std::size_t index = 0; index < std::size(volatilityShifts); ++index)
+        {
+            if (index) std::cout << ',';
+            const double volatility = std::max(.0001, args.volatility + volatilityShifts[index]);
+            const double scenarioPrice = BlackScholes::price(option.withVolatility(volatility));
+            std::cout << "{\"volatility\":" << volatility << ",\"modelPrice\":" << scenarioPrice
+                << ",\"pnl\":" << scenarioPrice - modelPrice << '}';
+        }
+        std::cout << "]}";
+    }
 }
 
 int main(int argc, char* argv[])
@@ -218,19 +319,31 @@ int main(int argc, char* argv[])
             try
             {
                 std::istringstream stream(line);
-                std::vector<std::string> tokens{"QuantCli"};
+                std::vector<std::string> tokens;
                 std::string token;
                 while (stream >> token) tokens.push_back(token);
-                std::vector<char*> pointers;
-                for (auto& text : tokens) pointers.push_back(text.data());
-                writeJson(parseArguments(static_cast<int>(pointers.size()), pointers.data()));
+                if (tokens.empty()) throw std::invalid_argument("Empty request.");
+
+                if (tokens.front() == "option")
+                {
+                    tokens.erase(tokens.begin());
+                    writeOptionJson(parseOptionArguments(tokens));
+                }
+                else
+                {
+                    if (tokens.front() == "bond") tokens.erase(tokens.begin());
+                    tokens.insert(tokens.begin(), "QuantCli");
+                    std::vector<char*> pointers;
+                    for (auto& text : tokens) pointers.push_back(text.data());
+                    writeJson(parseArguments(static_cast<int>(pointers.size()), pointers.data()));
+                }
                 std::cout << std::endl;
             }
             catch (const std::exception& exception)
             {
                 std::cerr << exception.what() << std::endl;
                 // Constant JSON avoids unescaped exception text on the protocol stream.
-                std::cout << "{\"error\":\"Invalid bond inputs; check coupon periods and yield bounds (-50% to 100%).\"}" << std::endl;
+                std::cout << "{\"error\":\"Native engine rejected the pricing inputs.\"}" << std::endl;
             }
         }
         return 0;

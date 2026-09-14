@@ -25,6 +25,22 @@ const glossary: Record<string, string> = {
   'Duration + convexity': 'Estimated monetary P&L using duration plus the curvature adjustment. Compare with Exact P&L to see how well the approximation matches full repricing.',
   'Yield shock profile': 'Shows hypothetical profit or loss as yield changes. The horizontal axis shows basis points; the vertical axis shows money gained or lost.',
   'Contractual cash flows': 'Scheduled, undiscounted coupons and principal repayment. A 1,000 bond paying 25 every six months has a final payment of 1,025.',
+  'Option type': 'A call gives the right to buy at the strike; a put gives the right to sell. A European option can be exercised only at expiry.',
+  'Spot price': 'The current market price of the underlying asset.',
+  'Strike price': 'The fixed price at which the holder may buy for a call or sell for a put at expiry.',
+  'Risk-free rate': 'The annual continuously compounded rate used by Black-Scholes to account for the time value of the strike payment.',
+  Volatility: 'Expected annual variability of the underlying return. Higher volatility normally increases both call and put values.',
+  'Time to expiry': 'Time remaining until the European option expires, expressed in years.',
+  'Market price': 'Observed option price used to solve for implied volatility. It may differ from the model price produced by the entered volatility.',
+  'Model price': 'The theoretical Black-Scholes value using the entered spot, strike, rate, volatility and time to expiry.',
+  'Implied volatility': 'The volatility that makes the Black-Scholes model price equal to the observed market price.',
+  Delta: 'Approximate option-value change for a one-unit move in the underlying price.',
+  Gamma: 'Change in Delta for a one-unit move in the underlying. It measures the curvature of option value against spot.',
+  Vega: 'Option-value change for a one-percentage-point increase in volatility.',
+  Theta: 'Estimated option-value change from one day passing, with other inputs unchanged.',
+  Rho: 'Option-value change for a one-percentage-point increase in the risk-free rate.',
+  'Option value profile': 'Compares the option value before expiry with its intrinsic payoff at expiry across different underlying prices.',
+  'Volatility exposure': 'Reprices the option at different volatilities to show how uncertainty affects value.',
 }
 
 export function TermHelp({ term }: { term: string }) {

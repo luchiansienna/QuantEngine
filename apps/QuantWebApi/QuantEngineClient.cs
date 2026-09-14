@@ -31,12 +31,39 @@ public sealed class QuantEngineClient(
         if (values.Any(value => !double.IsFinite(value)))
             throw new ArgumentException("Inputs must be finite numbers.");
 
-        var line = string.Join(" ", values.Select(value =>
+        var line = "bond " + string.Join(" ", values.Select(value =>
             value.ToString("R", CultureInfo.InvariantCulture)));
 
         if (request.CurvePoints is { Count: > 0 } points)
             line += " --curve " + string.Join(" ", points.SelectMany(p => new[] { p.MaturityYears, p.Rate })
                 .Select(value => value.ToString("R", CultureInfo.InvariantCulture)));
+
+        return await ExecuteAsync(line, cancellationToken);
+    }
+
+    public async Task<string> AnalyseOptionAsync(
+        OptionAnalysisRequest request, CancellationToken cancellationToken)
+    {
+        var values = new[]
+        {
+            request.Spot, request.Strike, request.RiskFreeRate,
+            request.Volatility, request.TimeToExpiry, request.MarketPrice
+        };
+        if (values.Any(value => !double.IsFinite(value)))
+            throw new ArgumentException("Inputs must be finite numbers.");
+
+        var line = "option " + request.OptionType.ToLowerInvariant() + " " +
+            string.Join(" ", values.Select(value =>
+                value.ToString("R", CultureInfo.InvariantCulture)));
+
+        return await ExecuteAsync(line, cancellationToken);
+    }
+
+    private async Task<string> ExecuteAsync(
+        string line, CancellationToken cancellationToken)
+    {
+        if (_options.TimeoutSeconds <= 0)
+            throw new InvalidOperationException("QuantEngine timeout must be positive.");
 
         // Includes time spent waiting for the worker.
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

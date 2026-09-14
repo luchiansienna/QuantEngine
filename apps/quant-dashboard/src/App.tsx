@@ -5,6 +5,7 @@ import type { BondAnalysisRequest, BondAnalysisResponse, RateScenario } from './
 import './App.css'
 import { CurveEditor, CurveResults, initialCurve } from './CurvePanel'
 import { TermHelp } from './TermHelp'
+import { OptionsWorkbench } from './OptionsWorkbench'
 
 const defaults: BondAnalysisRequest = {
   faceValue: 1000, couponRate: .05, maturityYears: 5, paymentsPerYear: 2,
@@ -14,6 +15,7 @@ const fmt = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 4 })
 const signed = (value: number) => `${value > 0 ? '+' : ''}${fmt.format(value)}`
 
 export default function App() {
+  const [active, setActive] = useState<'bond' | 'options'>('bond')
   const [input, setInput] = useState(defaults)
   const [useCurve, setUseCurve] = useState(false)
   const [curve, setCurve] = useState(initialCurve)
@@ -37,8 +39,9 @@ export default function App() {
   const submit = (event: FormEvent) => { event.preventDefault(); void run({ ...input, curvePoints: useCurve ? curve : undefined }) }
 
   return <div className="shell">
-    <Header />
+    <Header active={active} onChange={setActive} />
     <main>
+      {active === 'options' ? <OptionsWorkbench /> : <>
       <section className="intro"><div><p className="eyebrow">FIXED INCOME LAB</p><h1>Bond Risk Workbench</h1></div><p>Price a fixed-rate bond in the C++ engine and explore how its value responds to parallel yield shocks.</p></section>
       <div className="workspace">
         <form className="panel controls" onSubmit={submit}>
@@ -56,12 +59,13 @@ export default function App() {
           {result ? <Dashboard result={result} /> : <div className="panel empty"><i /><p>{error ? 'Analysis unavailable. Check the inputs and retry.' : 'Running the native pricing model…'}</p></div>}
         </section>
       </div>
+      </>}
     </main>
   </div>
 }
 
-function Header() {
-  return <header className="topbar"><div className="brand"><b>Q</b><strong>QuantEngine</strong></div><nav><span className="active">Bond risk</span><span>Options</span><span>Portfolio</span></nav><div className="engine"><i /> C++ engine via .NET 8</div></header>
+function Header({ active, onChange }: { active: 'bond' | 'options'; onChange: (tab: 'bond' | 'options') => void }) {
+  return <header className="topbar"><div className="brand"><b>Q</b><strong>QuantEngine</strong></div><nav aria-label="Workbench"><button className={active === 'bond' ? 'active' : ''} onClick={() => onChange('bond')}>Bond risk</button><button className={active === 'options' ? 'active' : ''} onClick={() => onChange('options')}>Options</button><button disabled>Portfolio</button></nav><div className="engine"><i /> C++ engine via .NET 8</div></header>
 }
 
 type FieldProps = { label: string; hint: string; value: number; min: number; max?: number; step: number | "any"; onChange: (value: number) => void }
