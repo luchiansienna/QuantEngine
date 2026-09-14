@@ -35,12 +35,12 @@ export function OptionsWorkbench() {
       <form className="panel controls" onSubmit={submit}>
         <div className="panel-heading"><h2>Contract</h2><button type="button" className="text-button" onClick={() => { setInput(defaults); void run(defaults) }}>Reset</button></div>
         <label className="field"><span><TermHelp term="Option type" /><small>right to buy / sell</small></span><select value={input.optionType} onChange={event => change('optionType', event.target.value as 'Call' | 'Put')}><option>Call</option><option>Put</option></select></label>
-        <OptionField label="Spot price" hint="underlying today" value={input.spot} min={.01} step={1} onChange={value => change('spot', value)} />
-        <OptionField label="Strike price" hint="exercise price" value={input.strike} min={.01} step={1} onChange={value => change('strike', value)} />
-        <OptionField label="Risk-free rate" hint="% annually" value={input.riskFreeRate * 100} min={-50} max={100} step={.1} onChange={value => change('riskFreeRate', value / 100)} />
-        <OptionField label="Volatility" hint="% annually" value={input.volatility * 100} min={.01} max={500} step={1} onChange={value => change('volatility', value / 100)} />
-        <OptionField label="Time to expiry" hint="years" value={input.timeToExpiry} min={.01} max={100} step={.25} onChange={value => change('timeToExpiry', value)} />
-        <OptionField label="Market price" hint="for implied vol" value={input.marketPrice} min={.0001} step={.1} onChange={value => change('marketPrice', value)} />
+        <OptionField label="Spot price" hint="underlying today" value={input.spot} min={.01} step={0.01} onChange={value => change('spot', value)} />
+        <OptionField label="Strike price" hint="exercise price" value={input.strike} min={.01} step={0.01} onChange={value => change('strike', value)} />
+        <OptionField label="Risk-free rate" hint="% annually" value={input.riskFreeRate * 100} min={-50} max={100} step={.001} onChange={value => change('riskFreeRate', value / 100)} />
+        <OptionField label="Volatility" hint="% annually" value={input.volatility * 100} min={.01} max={500} step={0.01} onChange={value => change('volatility', value / 100)} />
+        <OptionField label="Time to expiry" hint="years" value={input.timeToExpiry} min={.01} max={100} step={.01} onChange={value => change('timeToExpiry', value)} />
+        <OptionField label="Market price" hint="for implied vol" value={input.marketPrice} min={.0001} step={.0001} onChange={value => change('marketPrice', value)} />
         <button className="primary" disabled={loading}>{loading ? 'Calculating…' : 'Run analysis'} <span>→</span></button>
         {error && <p className="error" role="alert">{error}</p>}
       </form>
