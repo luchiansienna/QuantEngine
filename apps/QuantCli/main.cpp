@@ -1,4 +1,5 @@
 #include <quant/fixed_income/Bond.h>
+#include <quant/fixed_income/YieldCurve.h>
 #include <quant/fixed_income/Convexity.h>
 #include <quant/fixed_income/DV01.h>
 #include <quant/fixed_income/Discounting.h>
@@ -24,6 +25,7 @@ namespace
         double maturityYears = 5.0;
         int paymentsPerYear = 2;
         double yield = 0.045;
+        std::vector<quant::fixed_income::YieldCurvePoint> curve;
         std::vector<double> shocksBasisPoints{ -100.0, -50.0, -25.0, 0.0, 25.0, 50.0, 100.0 };
     };
 
@@ -59,7 +61,17 @@ namespace
         {
             args.shocksBasisPoints.clear();
             for (int index = 6; index < argc; ++index)
+            {
+                if (std::string(argv[index]) == "--curve")
+                {
+                    if ((argc - index - 1) < 4 || (argc - index - 1) % 2 != 0)
+                        throw std::invalid_argument("Supply at least two maturity/rate pairs.");
+                    for (++index; index < argc; index += 2)
+                        args.curve.push_back({parseDouble(argv[index], "tenor"), parseDouble(argv[index + 1], "zeroRate")});
+                    break;
+                }
                 args.shocksBasisPoints.push_back(parseDouble(argv[index], "shockBasisPoints"));
+            }
         }
 
         if (args.faceValue <= 0 || args.faceValue > 1e12 ||
@@ -75,6 +87,16 @@ namespace
             if (args.yield + shock * 0.0001 < -0.5 ||
                 args.yield + shock * 0.0001 > 1)
                 throw std::invalid_argument("Shocked yield outside supported bounds.");
+        if (args.shocksBasisPoints.empty() || args.curve.size() > 30)
+            throw std::invalid_argument("Invalid scenario or curve count.");
+        for (const auto& point : args.curve)
+        {
+            if (point.maturityYears <= 0 || point.maturityYears > 100 || point.rate < -0.5 || point.rate > 1)
+                throw std::invalid_argument("Curve point outside bounds.");
+            for (double shock : args.shocksBasisPoints)
+                if (point.rate + shock * .0001 < -0.5 || point.rate + shock * .0001 > 1)
+                    throw std::invalid_argument("Shifted curve outside bounds.");
+        }
         return args;
     }
 
@@ -89,37 +111,71 @@ namespace
             args.paymentsPerYear);
 
         const auto cashflows = bond.cashflows();
-        const double price = Discounting::presentValue(cashflows, args.yield);
-        const double macaulayDuration = Duration::macaulay(bond, args.yield);
-        const double modifiedDuration = Duration::modified(bond, args.yield);
-        const double dv01 = DV01::calculate(bond, args.yield);
-        const double convexity = Convexity::calculate(bond, args.yield);
-        const auto scenarios = RateScenarioEngine::runMany(
+        double price = Discounting::presentValue(cashflows, args.yield);
+        double macaulayDuration = Duration::macaulay(bond, args.yield);
+        double modifiedDuration = Duration::modified(bond, args.yield);
+        double dv01 = DV01::calculate(bond, args.yield);
+        double convexity = Convexity::calculate(bond, args.yield);
+        auto scenarios = RateScenarioEngine::runMany(
             bond,
             args.yield,
             args.shocksBasisPoints);
 
+        // Derivatives with respect to an additive shift of ALL annual zero rates.
+        if (!args.curve.empty())
+        {
+            const YieldCurve curve(args.curve);
+            price = 0; macaulayDuration = 0; modifiedDuration = 0; convexity = 0;
+            for (const auto& cf : cashflows)
+            {
+                const double pv = cf.amount * curve.discountFactor(cf.time);
+                const double base = 1 + curve.rate(cf.time);
+                price += pv;
+                macaulayDuration += cf.time * pv;
+                modifiedDuration += cf.time * pv / base;
+                convexity += cf.time * (cf.time + 1) * pv / (base * base);
+            }
+            macaulayDuration /= price; modifiedDuration /= price; convexity /= price;
+            dv01 = price * modifiedDuration * .0001;
+            scenarios.clear();
+            for (double shock : args.shocksBasisPoints)
+            {
+                const auto shifted = curve.parallelShift(shock);
+                double shockedPrice = 0;
+                for (const auto& cf : cashflows)
+                    shockedPrice += cf.amount * shifted.discountFactor(cf.time);
+                const double dy = shock * .0001;
+                const double linear = -price * modifiedDuration * dy;
+                scenarios.push_back({shock, shifted.rate(args.maturityYears), price, shockedPrice,
+                    shockedPrice - price, linear, linear + .5 * price * convexity * dy * dy});
+            }
+        }
+
         std::cout << std::setprecision(15)
-            << "{\"instrument\":{"
-            << "\"type\":\"FixedRateBond\","
-            << "\"faceValue\":" << args.faceValue << ','
-            << "\"couponRate\":" << args.couponRate << ','
-            << "\"maturityYears\":" << args.maturityYears << ','
-            << "\"paymentsPerYear\":" << args.paymentsPerYear << ','
-            << "\"yield\":" << args.yield
-            << "},\"metrics\":{"
-            << "\"presentValue\":" << price << ','
-            << "\"macaulayDuration\":" << macaulayDuration << ','
-            << "\"modifiedDuration\":" << modifiedDuration << ','
-            << "\"dv01\":" << dv01 << ','
-            << "\"convexity\":" << convexity
-            << "},\"cashflows\":[";
+                  << "{\"valuationMode\":\"" << (args.curve.empty() ? "flat" : "curve") << "\",\"instrument\":{"
+                  << "\"type\":\"FixedRateBond\","
+                  << "\"faceValue\":" << args.faceValue << ','
+                  << "\"couponRate\":" << args.couponRate << ','
+                  << "\"maturityYears\":" << args.maturityYears << ','
+                  << "\"paymentsPerYear\":" << args.paymentsPerYear << ','
+                  << "\"yield\":" << args.yield
+                  << "},\"metrics\":{"
+                  << "\"presentValue\":" << price << ','
+                  << "\"macaulayDuration\":" << macaulayDuration << ','
+                  << "\"modifiedDuration\":" << modifiedDuration << ','
+                  << "\"dv01\":" << dv01 << ','
+                  << "\"convexity\":" << convexity
+                  << "},\"cashflows\":[";
 
         for (std::size_t index = 0; index < cashflows.size(); ++index)
         {
             if (index > 0) std::cout << ',';
             std::cout << "{\"timeYears\":" << cashflows[index].time
-                << ",\"amount\":" << cashflows[index].amount << '}';
+                      << ",\"amount\":" << cashflows[index].amount;
+            const double rate = args.curve.empty() ? args.yield : YieldCurve(args.curve).rate(cashflows[index].time);
+            const double df = std::pow(1 + rate, -cashflows[index].time);
+            std::cout << ",\"zeroRate\":" << rate << ",\"discountFactor\":" << df
+                      << ",\"presentValue\":" << cashflows[index].amount * df << '}';
         }
 
         std::cout << "],\"scenarios\":[";
@@ -128,13 +184,24 @@ namespace
             if (index > 0) std::cout << ',';
             const auto& scenario = scenarios[index];
             std::cout << "{\"shockBasisPoints\":" << scenario.shockBasisPoints
-                << ",\"shockedYield\":" << scenario.shockedYield
-                << ",\"originalPrice\":" << scenario.originalPrice
-                << ",\"shockedPrice\":" << scenario.shockedPrice
-                << ",\"exactPnl\":" << scenario.exactPnl
-                << ",\"durationPnl\":" << scenario.durationPnl
-                << ",\"durationConvexityPnl\":" << scenario.durationConvexityPnl
-                << '}';
+                      << ",\"shockedYield\":" << scenario.shockedYield
+                      << ",\"originalPrice\":" << scenario.originalPrice
+                      << ",\"shockedPrice\":" << scenario.shockedPrice
+                      << ",\"exactPnl\":" << scenario.exactPnl
+                      << ",\"durationPnl\":" << scenario.durationPnl
+                      << ",\"durationConvexityPnl\":" << scenario.durationConvexityPnl
+                      << '}';
+        }
+        std::cout << "],\"curvePoints\":[";
+        if (!args.curve.empty())
+        {
+            const YieldCurve curve(args.curve);
+            for (std::size_t i = 0; i < curve.points().size(); ++i)
+            {
+                if (i) std::cout << ',';
+                const auto& point = curve.points()[i];
+                std::cout << "{\"maturityYears\":" << point.maturityYears << ",\"rate\":" << point.rate << '}';
+            }
         }
         std::cout << "]}";
     }
@@ -151,7 +218,7 @@ int main(int argc, char* argv[])
             try
             {
                 std::istringstream stream(line);
-                std::vector<std::string> tokens{ "QuantCli" };
+                std::vector<std::string> tokens{"QuantCli"};
                 std::string token;
                 while (stream >> token) tokens.push_back(token);
                 std::vector<char*> pointers;

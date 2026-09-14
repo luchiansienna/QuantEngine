@@ -34,6 +34,10 @@ public sealed class QuantEngineClient(
         var line = string.Join(" ", values.Select(value =>
             value.ToString("R", CultureInfo.InvariantCulture)));
 
+        if (request.CurvePoints is { Count: > 0 } points)
+            line += " --curve " + string.Join(" ", points.SelectMany(p => new[] { p.MaturityYears, p.Rate })
+                .Select(value => value.ToString("R", CultureInfo.InvariantCulture)));
+
         // Includes time spent waiting for the worker.
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(_options.TimeoutSeconds));

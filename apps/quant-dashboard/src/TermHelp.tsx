@@ -3,6 +3,10 @@ import { createPortal } from 'react-dom'
 import './TermHelp.css'
 
 const glossary: Record<string, string> = {
+  'Curve duration': 'Relative price sensitivity to an equal additive shift of every annual zero rate. It is not yield-to-maturity modified duration. A value of 4 means roughly 4% loss for a +100 bp parallel shift.',
+  'PV-weighted timing': 'Average payment time weighted by values discounted using the zero curve. This is a curve-based timing measure, not single-yield Macaulay duration.',
+  'Maturity zero rate': 'The shifted curve rate at the bond maturity, shown as a reference. Each cash flow is valued using its own maturity rate, not this one rate.',
+
   'Face value': 'The principal promised at maturity. A face value of 1,000 with a 5% coupon pays 50 each year, plus repayment of 1,000 at maturity.',
   'Coupon rate': 'Annual contractual interest as a percentage of face value. A 5% coupon on 1,000 pays 50 annually, regardless of the price you paid for the bond.',
   Maturity: 'Time remaining until the final payment and principal repayment. Five years with semi-annual coupons means ten payment dates. This model requires whole coupon periods.',
@@ -13,7 +17,7 @@ const glossary: Record<string, string> = {
   DV01: 'Approximate money lost per bond for a 1 bp rise in yield. One bp is 0.01 percentage points. A DV01 of 0.44 implies about 4.40 lost for a 10 bp rise, in the bond’s currency units. This app displays the positive sensitivity magnitude.',
   Convexity: 'Curvature of the price–yield relationship. It improves the duration estimate: relative price change ≈ −duration × Δy + ½ × convexity × Δy². Use decimal yield changes. Convexity itself is not a percentage return.',
   'Macaulay duration': 'Average time to receive payments, weighted by their present values. A five-year coupon bond can have a duration of 4.49 years because some cash arrives earlier. It is not the time to recover your investment.',
-  Shock: 'A hypothetical yield change in basis points. +100 bp moves 4.5% to 5.5%. Here the same single yield is changed for all payment dates.',
+  Shock: 'A hypothetical yield change in basis points. +100 bp moves 4.5% to 5.5%. In flat mode one yield changes; in curve mode every zero rate shifts by the same amount.',
   'Shocked yield': 'Original yield plus the scenario shock. For example, 4.5% plus 50 basis points equals 5.0%.',
   Price: 'The bond’s value recalculated using the shocked yield. Compare this with the original present value to find the scenario profit or loss.',
   'Exact P&L': 'Shocked price minus original price, from full cash-flow repricing within this model. A move from 1,024 to 982 produces a loss of 42. This is a scenario, not a forecast.',
