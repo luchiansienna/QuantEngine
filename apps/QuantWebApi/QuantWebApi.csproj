@@ -1,7 +1,24 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+
+	</PropertyGroup>
+
+
+	<ItemGroup>
+		<Reference Include="CSharpAPI">
+			<HintPath>C:\TWS API\source\CSharpClient\client\bin\Release\net8.0\CSharpAPI.dll</HintPath>
+			<Private>true</Private>
+			<SpecificVersion>false</SpecificVersion>
+		</Reference>
+	</ItemGroup>
+
+
+	<ItemGroup>
+	  <PackageReference Include="Google.Protobuf" Version="3.29.5" />
+	</ItemGroup>
+
 </Project>
