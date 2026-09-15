@@ -10,3 +10,4 @@
 /apps/QuantWebApi/obj
 /apps/QuantWebApi/bin/Debug/net8.0
 /apps/QuantWebApi/.vs/QuantWebApi.slnx
+/apps/QuantWebApi/QuantWebApi.local.props
