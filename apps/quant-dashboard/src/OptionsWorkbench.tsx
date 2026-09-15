@@ -1,12 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { analyseOption } from './api'
+import {
+  analyseOption,
+  loadIbkrOptionSnapshot,
+} from './api'
 import type {
+  IbkrOptionSnapshot,
+  IbkrOptionSnapshotRequest,
   OptionAnalysisRequest,
   OptionAnalysisResponse,
 } from './types'
 import { TermHelp } from './TermHelp'
 import './OptionsWorkbench.css'
+
+const marketDefaults: IbkrOptionSnapshotRequest = {
+  symbol: 'AAPL',
+  expiry: '2026-10-16',
+  strike: 335,
+  optionType: 'Call',
+}
 
 const defaults: OptionAnalysisRequest = {
   optionType: 'Call',
@@ -23,6 +35,22 @@ const fmt = new Intl.NumberFormat('en-GB', {
   maximumFractionDigits: 4,
 })
 
+function calculateTimeToExpiry(expiry: string): number {
+  const [year, month, day] = expiry
+    .split('-')
+    .map(Number)
+
+  const expiryTime = Date.UTC(year, month - 1, day, 20)
+  const millisecondsPerYear =
+    365.25 * 24 * 60 * 60 * 1000
+
+  return Math.max(
+    (expiryTime - Date.now()) / millisecondsPerYear,
+    1 / 365.25,
+  )
+}
+
+
 const signed = (value: number) =>
   `${value > 0 ? '+' : ''}${fmt.format(value)}`
 
@@ -35,7 +63,61 @@ export function OptionsWorkbench() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+const [marketRequest, setMarketRequest] =
+  useState<IbkrOptionSnapshotRequest>(marketDefaults)
 
+const [marketSnapshot, setMarketSnapshot] =
+  useState<IbkrOptionSnapshot | null>(null)
+
+const [marketLoading, setMarketLoading] =
+  useState(false)
+
+const [marketError, setMarketError] =
+  useState<string | null>(null)
+
+  const changeMarketRequest =
+  <K extends keyof IbkrOptionSnapshotRequest>(
+    key: K,
+    value: IbkrOptionSnapshotRequest[K],
+  ) => {
+    setMarketRequest(current => ({
+      ...current,
+      [key]: value,
+    }))
+  }
+async function loadMarketData() {
+  setMarketLoading(true)
+  setMarketError(null)
+
+  try {
+    const snapshot =
+      await loadIbkrOptionSnapshot(marketRequest)
+
+    setMarketSnapshot(snapshot)
+
+    const updatedInput: OptionAnalysisRequest = {
+      ...input,
+      optionType: snapshot.optionType,
+      spot: snapshot.underlying.preferredPrice,
+      strike: snapshot.strike,
+      marketPrice: snapshot.option.preferredPrice,
+      timeToExpiry: calculateTimeToExpiry(
+        marketRequest.expiry,
+      ),
+    }
+
+    setInput(updatedInput)
+    await run(updatedInput)
+  } catch (reason) {
+    setMarketError(
+      reason instanceof Error
+        ? reason.message
+        : 'The IBKR snapshot could not be loaded.',
+    )
+  } finally {
+    setMarketLoading(false)
+  }
+}
   async function run(value: OptionAnalysisRequest) {
     setLoading(true)
     setError(null)
@@ -72,11 +154,13 @@ export function OptionsWorkbench() {
     void run(input)
   }
 
-  const reset = () => {
-    setInput(defaults)
-    void run(defaults)
-  }
-
+const reset = () => {
+  setInput(defaults)
+  setMarketRequest(marketDefaults)
+  setMarketSnapshot(null)
+  setMarketError(null)
+  void run(defaults)
+}
   return (
     <>
       <section className="intro">
@@ -104,7 +188,154 @@ export function OptionsWorkbench() {
               Reset
             </button>
           </div>
+<section className="market-data-controls">
+  <div className="subsection-heading">
+    <div>
+      <p className="eyebrow">IBKR MARKET DATA</p>
+      <h3>Option quote snapshot</h3>
+    </div>
 
+    {marketSnapshot && (
+      <span
+        className={`data-status ${
+          marketSnapshot.marketDataType === 'delayed'
+            ? 'delayed'
+            : 'live'
+        }`}
+      >
+        {marketSnapshot.marketDataType}
+      </span>
+    )}
+  </div>
+
+  <label className="field">
+    <span>
+      <span>Symbol</span>
+      <small>underlying ticker</small>
+    </span>
+
+    <input
+      aria-label="IBKR symbol"
+      type="text"
+      required
+      value={marketRequest.symbol}
+      onChange={event =>
+        changeMarketRequest(
+          'symbol',
+          event.target.value.toUpperCase(),
+        )
+      }
+    />
+  </label>
+
+  <label className="field">
+    <span>
+      <span>Expiry</span>
+      <small>contract expiration</small>
+    </span>
+
+    <input
+      aria-label="IBKR expiry"
+      type="date"
+      required
+      value={marketRequest.expiry}
+      onChange={event =>
+        changeMarketRequest(
+          'expiry',
+          event.target.value,
+        )
+      }
+    />
+  </label>
+
+  <OptionField
+    label="IBKR strike"
+    hint="contract strike"
+    value={marketRequest.strike}
+    min={0.01}
+    step={0.5}
+    onChange={value =>
+      changeMarketRequest('strike', value)
+    }
+  />
+
+  <label className="field">
+    <span>
+      <span>IBKR option type</span>
+      <small>call or put contract</small>
+    </span>
+
+    <select
+      value={marketRequest.optionType}
+      onChange={event =>
+        changeMarketRequest(
+          'optionType',
+          event.target.value as 'Call' | 'Put',
+        )
+      }
+    >
+      <option value="Call">Call</option>
+      <option value="Put">Put</option>
+    </select>
+  </label>
+
+  <button
+    type="button"
+    className="secondary market-data-button"
+    disabled={marketLoading || loading}
+    onClick={() => void loadMarketData()}
+  >
+    {marketLoading
+      ? 'Loading IBKR data…'
+      : 'Load market data'}
+  </button>
+
+  {marketError && (
+    <p className="error" role="alert">
+      {marketError}
+    </p>
+  )}
+
+  {marketSnapshot && (
+    <div className="market-snapshot">
+      <div>
+        <small>Underlying</small>
+        <strong>
+          {fmt.format(
+            marketSnapshot.underlying.preferredPrice,
+          )}
+        </strong>
+        <span>
+          {formatSpread(marketSnapshot.underlying)}
+        </span>
+      </div>
+
+      <div>
+        <small>Option</small>
+        <strong>
+          {fmt.format(
+            marketSnapshot.option.preferredPrice,
+          )}
+        </strong>
+        <span>
+          {formatSpread(marketSnapshot.option)}
+        </span>
+      </div>
+
+      <p>
+        {marketSnapshot.option.localSymbol ??
+          marketSnapshot.option.symbol}
+      </p>
+
+      <time dateTime={marketSnapshot.timestampUtc}>
+        Snapshot:{' '}
+        {new Date(
+          marketSnapshot.timestampUtc,
+        ).toLocaleString()}
+      </time>
+    </div>
+  )}
+</section>
           <label className="field">
             <span>
               <TermHelp term="Option type" />
@@ -244,6 +475,19 @@ type FieldProps = {
   max?: number
   step: number
   onChange: (value: number) => void
+}
+
+function formatSpread(snapshot: {
+  bid: number | null
+  ask: number | null
+}): string {
+  if (snapshot.bid === null || snapshot.ask === null) {
+    return 'Bid/ask unavailable'
+  }
+
+  return `Bid ${fmt.format(snapshot.bid)} · Ask ${fmt.format(
+    snapshot.ask,
+  )}`
 }
 
 function OptionField({

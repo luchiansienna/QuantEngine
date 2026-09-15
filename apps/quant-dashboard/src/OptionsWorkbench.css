@@ -21,3 +21,116 @@
   .option-metrics .metric:first-child { grid-column: 1 / -1; }
   .dual-legend { gap: 9px; flex-direction: column; }
 }
+.market-data-controls {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 18px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(112, 211, 255, 0.025);
+}
+
+.subsection-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.subsection-heading h3 {
+  margin: 2px 0 0;
+  font-size: 1rem;
+}
+
+.data-status {
+  padding: 4px 8px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.data-status.live {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(190, 255, 71, 0.08);
+}
+
+.data-status.delayed {
+  color: #ffca67;
+  border-color: #8c6d34;
+  background: rgba(255, 202, 103, 0.08);
+}
+
+.market-data-button {
+  width: 100%;
+  padding: 11px 14px;
+  color: var(--blue);
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  background: transparent;
+  font-weight: 700;
+}
+
+.market-data-button:hover:not(:disabled) {
+  color: var(--background);
+  background: var(--blue);
+}
+
+.market-data-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.market-snapshot {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.market-snapshot > div {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.market-snapshot small,
+.market-snapshot span,
+.market-snapshot time {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.market-snapshot strong {
+  font-size: 1.05rem;
+}
+
+.market-snapshot p,
+.market-snapshot time {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.market-snapshot p {
+  overflow-wrap: anywhere;
+  font-family: monospace;
+  color: var(--ink);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 680px) {
+  .market-snapshot {
+    grid-template-columns: 1fr;
+  }
+
+  .market-snapshot p,
+  .market-snapshot time {
+    grid-column: 1;
+  }
+}

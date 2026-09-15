@@ -94,3 +94,37 @@ export type OptionAnalysisResponse = {
     pnl: number
   }>
 }
+
+
+export type IbkrMarketSnapshot = {
+  contractId: number
+  symbol: string
+  localSymbol: string | null
+  securityType: string
+  exchange: string
+  currency: string
+  bid: number | null
+  ask: number | null
+  last: number | null
+  close: number | null
+  midpoint: number | null
+  preferredPrice: number
+}
+
+export type IbkrOptionSnapshot = {
+  underlying: IbkrMarketSnapshot
+  option: IbkrMarketSnapshot
+  expiry: string
+  strike: number
+  optionType: 'Call' | 'Put'
+  timestampUtc: string
+  marketDataTypeCode: number
+  marketDataType: string
+}
+
+export type IbkrOptionSnapshotRequest = {
+  symbol: string
+  expiry: string
+  strike: number
+  optionType: 'Call' | 'Put'
+}
