@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../apps/QuantWebApi/BondAnalysisRequest.cs" Link="BondAnalysisRequest.cs" />
+    <Compile Include="../../apps/QuantWebApi/OptionAnalysisRequest.cs" Link="OptionAnalysisRequest.cs" />
+    <Compile Include="../../apps/QuantWebApi/Risk/*.cs" Link="Risk/%(Filename)%(Extension)" />
+    <Compile Include="../../apps/QuantWebApi/QuantEngineClient.cs" Link="QuantEngineClient.cs" />
+    <Compile Include="../../apps/QuantWebApi/QuantEngineOptions.cs" Link="QuantEngineOptions.cs" />
+  </ItemGroup>
+</Project>

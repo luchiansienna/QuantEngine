@@ -1,3 +1,4 @@
+#include "RiskCommands.h"
 #include <quant/fixed_income/Bond.h>
 #include <quant/fixed_income/YieldCurve.h>
 #include <quant/fixed_income/Convexity.h>
@@ -324,7 +325,11 @@ int main(int argc, char* argv[])
                 while (stream >> token) tokens.push_back(token);
                 if (tokens.empty()) throw std::invalid_argument("Empty request.");
 
-                if (tokens.front() == "option")
+                if (tokens.front() == "risk" || tokens.front() == "credit-bond" || tokens.front() == "historical-var")
+                {
+                    writeRiskCommand(tokens, std::cout);
+                }
+                else if (tokens.front() == "option")
                 {
                     tokens.erase(tokens.begin());
                     writeOptionJson(parseOptionArguments(tokens));

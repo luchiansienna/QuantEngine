@@ -1,4 +1,4 @@
-﻿# CMakeList.txt : CMake project for QuantEngine, include source and define
+# CMakeList.txt : CMake project for QuantEngine, include source and define
 # project specific logic here.
 #
 
@@ -6,6 +6,7 @@
 
 # TODO: Add tests and install targets if needed.
 add_library(QuantEngine STATIC
+    src/risk/RiskAnalytics.cpp
     src/pricing/BlackScholes.cpp
     src/pricing/ImpliedVolatility.cpp
  "include/quant/fixed_income/Cashflow.h" "include/quant/fixed_income/Discounting.h" "src/fixed_income/Discounting.cpp" "include/quant/fixed_income/Bond.h" "src/fixed_income/Bond.cpp"

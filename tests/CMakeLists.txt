@@ -24,3 +24,6 @@ include(CTest)
 include(Catch)
 
 catch_discover_tests(QuantEngineTests)
+add_executable(RiskAnalyticsTests RiskAnalyticsTests.cpp)
+target_link_libraries(RiskAnalyticsTests PRIVATE QuantEngine)
+add_test(NAME RiskAnalyticsTests COMMAND RiskAnalyticsTests)

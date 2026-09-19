@@ -59,6 +59,15 @@ public sealed class QuantEngineClient(
         return await ExecuteAsync(line, cancellationToken);
     }
 
+    public Task<string> AnalyseRiskAsync(Risk.RiskRequest request, CancellationToken cancellationToken)
+        => ExecuteAsync(request.ToCommand(), cancellationToken);
+
+    public Task<string> PriceCreditBondAsync(Risk.CreditBondRequest request, CancellationToken cancellationToken)
+        => ExecuteAsync(request.ToCommand(), cancellationToken);
+
+    public Task<string> HistoricalVarAsync(Risk.HistoricalVarRequest request, CancellationToken cancellationToken)
+        => ExecuteAsync(request.ToCommand(), cancellationToken);
+
     private async Task<string> ExecuteAsync(
         string line, CancellationToken cancellationToken)
     {

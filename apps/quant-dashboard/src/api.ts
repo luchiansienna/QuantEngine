@@ -86,3 +86,8 @@ export async function analyseOption(
     'The option analysis could not be completed.',
   )
 }
+export async function postRisk<T>(path: string, request: unknown): Promise<T> {
+  return readResponse<T>(await fetch(`/api/risk/${path}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request),
+  }), 'Risk calculation failed.')
+}

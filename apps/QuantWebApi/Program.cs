@@ -1,3 +1,4 @@
+using QuantWebApi.Risk;
 using QuantWebApi;
 using QuantWebApi.MarketData;
 
@@ -127,6 +128,7 @@ app.MapGet(
                 detail: exception.Message);
         }
     });
+app.MapRiskEndpoints();
 app.MapFallbackToFile("index.html");
 
 app.Run();

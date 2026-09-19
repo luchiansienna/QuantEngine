@@ -1,4 +1,4 @@
-﻿# CMakeList.txt : Top-level CMake project file, do global configuration
+# CMakeList.txt : Top-level CMake project file, do global configuration
 # and include sub-projects here.
 #
 #cmake_minimum_required (VERSION 3.10)
@@ -21,4 +21,7 @@ project(QuantEngine LANGUAGES CXX)
 add_subdirectory(QuantEngine)
 add_subdirectory(apps/QuantConsole)
 add_subdirectory(apps/QuantCli)
-add_subdirectory(tests)
+include(CTest)
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
