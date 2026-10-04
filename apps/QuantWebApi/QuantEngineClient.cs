@@ -68,6 +68,9 @@ public sealed class QuantEngineClient(
     public Task<string> HistoricalVarAsync(Risk.HistoricalVarRequest request, CancellationToken cancellationToken)
         => ExecuteAsync(request.ToCommand(), cancellationToken);
 
+    public Task<string> BacktestStockAsync(string command, CancellationToken cancellationToken)
+        => ExecuteAsync(command, cancellationToken);
+
     private async Task<string> ExecuteAsync(
         string line, CancellationToken cancellationToken)
     {
@@ -197,3 +200,4 @@ public sealed class QuantEngineClient(
         finally { _gate.Release(); }
     }
 }
+

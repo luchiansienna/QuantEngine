@@ -1,3 +1,4 @@
+using QuantWebApi.Strategies;
 using QuantWebApi.Risk;
 using QuantWebApi;
 using QuantWebApi.MarketData;
@@ -14,6 +15,7 @@ builder.Services
         IbkrOptions.SectionName));
 
 builder.Services.AddSingleton<IbkrMarketDataClient>();
+builder.Services.AddSingleton<StockHistoryStore>();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
@@ -129,8 +131,10 @@ app.MapGet(
         }
     });
 app.MapRiskEndpoints();
+app.MapStockStrategyEndpoints();
 app.MapFallbackToFile("index.html");
 
 app.Run();
 
 public partial class Program;
+

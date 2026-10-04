@@ -1,4 +1,5 @@
 #include "RiskCommands.h"
+#include "BacktestCommand.h"
 #include <quant/fixed_income/Bond.h>
 #include <quant/fixed_income/YieldCurve.h>
 #include <quant/fixed_income/Convexity.h>
@@ -325,7 +326,11 @@ int main(int argc, char* argv[])
                 while (stream >> token) tokens.push_back(token);
                 if (tokens.empty()) throw std::invalid_argument("Empty request.");
 
-                if (tokens.front() == "risk" || tokens.front() == "credit-bond" || tokens.front() == "historical-var")
+                if (tokens.front() == "stock-backtest")
+                {
+                    writeBacktestStream(tokens, std::cout);
+                }
+                else if (tokens.front() == "risk" || tokens.front() == "credit-bond" || tokens.front() == "historical-var")
                 {
                     writeRiskCommand(tokens, std::cout);
                 }
@@ -355,6 +360,11 @@ int main(int argc, char* argv[])
     }
     try
     {
+        if (argc >= 2 && std::string(argv[1]) == "backtest")
+        {
+            writeBacktestCommand(argc, argv, std::cout);
+            return 0;
+        }
         const auto args = parseArguments(argc, argv);
         writeJson(args);
         return 0;

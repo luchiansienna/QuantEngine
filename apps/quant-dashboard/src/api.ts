@@ -91,3 +91,12 @@ export async function postRisk<T>(path: string, request: unknown): Promise<T> {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request),
   }), 'Risk calculation failed.')
 }
+
+
+export async function stockRequest<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  return readResponse<T>(await fetch(path, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body), signal,
+  }), 'The stock strategy request failed.')
+}

@@ -6,6 +6,7 @@
 
 # TODO: Add tests and install targets if needed.
 add_library(QuantEngine STATIC
+    src/strategies/MovingAverageBacktest.cpp
     src/risk/RiskAnalytics.cpp
     src/pricing/BlackScholes.cpp
     src/pricing/ImpliedVolatility.cpp

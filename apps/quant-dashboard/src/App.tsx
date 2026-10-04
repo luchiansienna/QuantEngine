@@ -1,3 +1,4 @@
+import { StockWorkbench } from './StockWorkbench'
 import { RiskWorkbench } from './RiskWorkbench'
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
@@ -16,7 +17,7 @@ const fmt = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 4 })
 const signed = (value: number) => `${value > 0 ? '+' : ''}${fmt.format(value)}`
 
 export default function App() {
-  const [active, setActive] = useState<'bond' | 'options' | 'risk'>('bond')
+  const [active, setActive] = useState<'bond' | 'options' | 'risk' | 'stocks'>('bond')
   const [input, setInput] = useState(defaults)
   const [useCurve, setUseCurve] = useState(false)
   const [curve, setCurve] = useState(initialCurve)
@@ -42,7 +43,7 @@ export default function App() {
   return <div className="shell">
     <Header active={active} onChange={setActive} />
     <main>
-      {active === 'risk' ? <RiskWorkbench /> : active === 'options' ? <OptionsWorkbench /> : <>
+      {active === 'stocks' ? <StockWorkbench /> : active === 'risk' ? <RiskWorkbench /> : active === 'options' ? <OptionsWorkbench /> : <>
       <section className="intro"><div><p className="eyebrow">FIXED INCOME LAB</p><h1>Bond Risk Workbench</h1></div><p>Price a fixed-rate bond in the C++ engine and explore how its value responds to parallel yield shocks.</p></section>
       <div className="workspace">
         <form className="panel controls" onSubmit={submit}>
@@ -65,8 +66,8 @@ export default function App() {
   </div>
 }
 
-function Header({ active, onChange }: { active: 'bond' | 'options' | 'risk'; onChange: (tab: 'bond' | 'options' | 'risk') => void }) {
-  return <header className="topbar"><div className="brand"><b>Q</b><strong>QuantEngine</strong></div><nav aria-label="Workbench"><button className={active === 'bond' ? 'active' : ''} onClick={() => onChange('bond')}>Bond risk</button><button className={active === 'options' ? 'active' : ''} onClick={() => onChange('options')}>Options</button><button className={active === 'risk' ? 'active' : ''} onClick={() => onChange('risk')}>Credit & market risk</button></nav><div className="engine"><i /> C++ engine via .NET 8</div></header>
+function Header({ active, onChange }: { active: 'bond' | 'options' | 'risk' | 'stocks'; onChange: (tab: 'bond' | 'options' | 'risk' | 'stocks') => void }) {
+  return <header className="topbar"><div className="brand"><b>Q</b><strong>QuantEngine</strong></div><nav aria-label="Workbench"><button className={active === 'bond' ? 'active' : ''} onClick={() => onChange('bond')}>Bond risk</button><button className={active === 'options' ? 'active' : ''} onClick={() => onChange('options')}>Options</button><button className={active === 'risk' ? 'active' : ''} onClick={() => onChange('risk')}>Credit & market risk</button><button className={active === 'stocks' ? 'active' : ''} onClick={() => onChange('stocks')}>Stock strategies</button></nav><div className="engine"><i /> C++ engine via .NET 8</div></header>
 }
 
 type FieldProps = { label: string; hint: string; value: number; min: number; max?: number; step: number | "any"; onChange: (value: number) => void }
@@ -116,3 +117,4 @@ function Cashflows({ result }: { result: BondAnalysisResponse }) {
   const max = Math.max(...result.cashflows.map(x => x.amount))
   return <section className="panel cashflow-panel"><div className="panel-heading"><div><p className="eyebrow">PAYMENT SCHEDULE</p><h2><TermHelp term="Contractual cash flows" /></h2></div><span className="muted">{result.cashflows.length} payments</span></div><div className="cashflow-bars">{result.cashflows.map(x => <div className="cashflow" key={x.timeYears} title={`Year ${x.timeYears}: ${fmt.format(x.amount)}`}><i style={{height:`${Math.max(8,x.amount/max*100)}%`}}/><small>{x.timeYears}y</small></div>)}</div></section>
 }
+
