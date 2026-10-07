@@ -40,19 +40,15 @@ public sealed partial class IbkrMarketDataClient
         try
         {
             // Same adjustment basis for open and close. No streaming or orders.
-            //client.reqHistoricalData(id, contract, "", $"{request.Years} Y", "1 day", "TRADES", 1, 1, false, []);
-            var endDateTime = DateTime.UtcNow
-                .AddMinutes(-20)
-                .ToString("yyyyMMdd-HH:mm:ss", CultureInfo.InvariantCulture);
-            _logger.LogInformation(
+           _logger.LogInformation(
                 "Historical request {RequestId}: End={End}, NowUtc={NowUtc}",
                 id,
-                endDateTime,
+                null,
                 DateTime.UtcNow);
             client.reqHistoricalData(
                 id,
                 contract,
-                endDateTime,
+                null,
                 $"{request.Years} Y",
                 "1 day",
                 "TRADES",
