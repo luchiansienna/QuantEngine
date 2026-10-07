@@ -1,5 +1,8 @@
 #pragma once
 #include <quant/strategies/MovingAverageBacktest.h>
+#include <quant/strategies/Strategies.h>
+#include <memory>
+#include <utility>
 #include <cmath>
 #include <fstream>
 #include <iomanip>
@@ -7,11 +10,16 @@
 #include <stdexcept>
 #include <string>
 
-inline void writeBacktestJson(const quant::strategies::BacktestSettings& settings,
-    const quant::strategies::BacktestResult& result, std::ostream& out) {
+inline void writeBacktestJson(const quant::strategies::ExecutionSettings& settings,
+    const quant::strategies::BacktestResult& result, std::ostream& out,
+    const std::string& strategy, const std::vector<std::pair<std::string, double>>& parameters) {
     out << std::setprecision(17)
-        << "{\"strategy\":\"SMA long/cash\",\"fastWindow\":" << settings.fastWindow
-        << ",\"slowWindow\":" << settings.slowWindow
+        << "{\"strategy\":\"" << strategy << "\",\"parameters\":{";
+    for (std::size_t i = 0; i < parameters.size(); ++i) {
+        if (i) out << ',';
+        out << '"' << parameters[i].first << "\":" << parameters[i].second;
+    }
+    out << "},\"warmupBars\":" << result.warmupBars
         << ",\"initialCash\":" << settings.initialCash << ",\"allocation\":" << settings.allocation
         << ",\"feeBps\":" << settings.feeBps << ",\"slippageBps\":" << settings.slippageBps
         << ",\"finalEquity\":" << result.finalEquity << ",\"totalReturn\":" << result.totalReturn
@@ -33,6 +41,13 @@ inline void writeBacktestJson(const quant::strategies::BacktestSettings& setting
             << ",\"equity\":" << e.equity << ",\"benchmarkEquity\":" << e.benchmarkEquity << '}';
     }
     out << "]}";
+}
+
+inline void writeBacktestJson(const quant::strategies::BacktestSettings& settings,
+    const quant::strategies::BacktestResult& result, std::ostream& out) {
+    writeBacktestJson({settings.initialCash, settings.allocation, settings.feeBps, settings.slippageBps},
+        result, out, "sma-long-cash", {{"fastWindow", static_cast<double>(settings.fastWindow)},
+        {"slowWindow", static_cast<double>(settings.slowWindow)}});
 }
 
 inline void writeBacktestCommand(int argc, char* argv[], std::ostream& out) {
@@ -78,6 +93,41 @@ inline void writeBacktestStream(const std::vector<std::string>& tokens, std::ost
         if (n < 1 || n > 5000 || n != std::floor(n)) throw std::invalid_argument("Invalid count.");
         return static_cast<std::size_t>(n);
     };
+    if (tokens[0] == "stock-backtest-v2") {
+        if (tokens.size() < 9) throw std::invalid_argument("Incomplete strategy request.");
+        const auto& id = tokens[1];
+        const auto parameterCount = count(tokens[2]);
+        const std::size_t expected = id == "sma-long-cash" ? 2 : id == "momentum-long-cash" ? 1 : id == "rsi-mean-reversion" ? 4 : 0;
+        if (!expected || parameterCount != expected || tokens.size() < 8 + expected)
+            throw std::invalid_argument("Unsupported strategy or incorrect parameter count.");
+        std::unique_ptr<Strategy> strategy;
+        std::vector<std::pair<std::string, double>> parameters;
+        if (id == "sma-long-cash") {
+            const auto fast = count(tokens[3]), slow = count(tokens[4]);
+            strategy = std::make_unique<SmaCrossStrategy>(fast, slow);
+            parameters = {{"fastWindow", static_cast<double>(fast)}, {"slowWindow", static_cast<double>(slow)}};
+        } else if (id == "momentum-long-cash") {
+            const auto lookback = count(tokens[3]);
+            strategy = std::make_unique<MomentumStrategy>(lookback);
+            parameters = {{"lookback", static_cast<double>(lookback)}};
+        } else {
+            const auto period = count(tokens[3]), trend = count(tokens[4]);
+            const auto entry = number(tokens[5]), exit = number(tokens[6]);
+            strategy = std::make_unique<RsiMeanReversionStrategy>(period, trend, entry, exit);
+            parameters = {{"rsiPeriod", static_cast<double>(period)}, {"trendWindow", static_cast<double>(trend)},
+                {"entryBelow", entry}, {"exitAbove", exit}};
+        }
+        const auto offset = 3 + expected;
+        ExecutionSettings settings{number(tokens[offset]), number(tokens[offset + 1]),
+            number(tokens[offset + 2]), number(tokens[offset + 3])};
+        const auto n = count(tokens[offset + 4]);
+        if (tokens.size() != offset + 5 + n * 3) throw std::invalid_argument("Incorrect bar count.");
+        std::vector<DailyBar> bars; bars.reserve(n);
+        for (std::size_t i = offset + 5; i < tokens.size(); i += 3)
+            bars.push_back({tokens[i], number(tokens[i + 1]), number(tokens[i + 2])});
+        writeBacktestJson(settings, backtest(bars, *strategy, settings), out, id, parameters);
+        return;
+    }
     BacktestSettings s{count(tokens[1]), count(tokens[2]), number(tokens[3]),
         number(tokens[4]), number(tokens[5]), number(tokens[6])};
     const auto n = count(tokens[7]);

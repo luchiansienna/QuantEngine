@@ -14,4 +14,6 @@
 /.ipynb_checkpoints/Untitled-checkpoint.ipynb
 /apps/QuantWebApi/.vs/ProjectEvaluation
 /tests/RiskApiHarness/obj
+/tests/StockApiHarness/obj
+/tests/StockApiHarness/bin
 /Untitled.ipynb

@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { stockRequest } from './api'
-import { drawdowns, movingAverage } from './stockTypes'
-import type { StockAlgorithm, StockHistory, StockQuery, StockResponse, StockSettings } from './stockTypes'
+import { drawdowns, priceOverlays, readAlgorithmCatalog, rsi, runStats } from './stockTypes'
+import type { Series, StockAlgorithm, StockHistory, StockQuery, StockResponse, StockSettings } from './stockTypes'
 import './StockWorkbench.css'
 
-const defaults: StockSettings = { algorithm: 'sma-long-cash', fastWindow: 20, slowWindow: 50, initialCash: 10000, allocation: .95, feeBps: 5, slippageBps: 5 }
+// Shown until the algorithm catalog loads; the catalog then supplies the real defaults.
+const defaults: StockSettings = { algorithm: 'sma-long-cash', parameters: { fastWindow: 20, slowWindow: 50 }, initialCash: 10000, allocation: .95, feeBps: 5, slippageBps: 5 }
+const parametersOf = (a: StockAlgorithm): Record<string, number> => Object.fromEntries(a.parameters.map(p => [p.key, p.default]))
 const money = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(v)
 const percent = (v: number) => `${(v * 100).toFixed(2)}%`
+const optionalPercent = (v: number | null) => v === null ? '—' : percent(v)
+const ratio = (v: number | null) => v === null ? '—' : v.toFixed(2)
 const number = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 4 })
 
 export function StockWorkbench() {
@@ -24,10 +28,24 @@ export function StockWorkbench() {
   const controller = useRef<AbortController | null>(null)
   useEffect(() => {
     const c = new AbortController()
-    stockRequest<StockAlgorithm[]>('/api/strategies', undefined, c.signal).then(setAlgorithms)
-      .catch(e => { if (!c.signal.aborted) setCatalogError(e instanceof Error ? e.message : 'Cannot load algorithms.') })
+    stockRequest<unknown>('/api/strategies', undefined, c.signal).then(value => {
+      if (c.signal.aborted) return
+      const list = readAlgorithmCatalog(value)
+      setCatalogError('')
+      setAlgorithms(list)
+      setSettings(s => {
+        const a = list.find(x => x.id === s.algorithm) ?? list[0]
+        return a ? { ...s, algorithm: a.id, parameters: parametersOf(a) } : s
+      })
+    }).catch(e => { if (!c.signal.aborted) setCatalogError(e instanceof Error ? e.message : 'Cannot load algorithms.') })
     return () => { c.abort(); controller.current?.abort() }
   }, [catalogAttempt])
+  const algorithm = algorithms.find(a => a.id === settings.algorithm)
+  const selectAlgorithm = (id: string) => {
+    const next = algorithms.find(a => a.id === id)
+    if (next) setSettings({ ...settings, algorithm: id, parameters: parametersOf(next) })
+  }
+  const setParameter = (key: string, value: number) => setSettings({ ...settings, parameters: { ...settings.parameters, [key]: value } })
   const updateQuery = (next: StockQuery) => { setQuery(next); setHistory(null); setResponse(null); setError('') }
   async function load(event: FormEvent) {
     event.preventDefault(); controller.current?.abort()
@@ -40,13 +58,11 @@ export function StockWorkbench() {
   async function run(event: FormEvent) {
     event.preventDefault()
     if (!history) return
-    if (settings.fastWindow >= settings.slowWindow || settings.slowWindow >= history.bars.length) {
-      setError('Fast window must be smaller than slow window, with more daily bars than the slow window.'); return
-    }
     const c = new AbortController(); controller.current = c
-    const submitted = { ...settings }
+    const submitted = { ...settings, parameters: { ...settings.parameters } }
     setBusy('backtest'); setError('')
     try {
+      // Cross-parameter rules (e.g. fast < slow) are validated by the engine and shown below.
       const value = await stockRequest<StockResponse>('/api/strategies/stocks/backtest', { ...submitted, datasetId: history.datasetId }, c.signal)
       setResponse(value); setLastSettings(submitted)
     } catch (e) { if (!c.signal.aborted) setError(e instanceof Error ? e.message : 'Backtest failed.') }
@@ -54,7 +70,7 @@ export function StockWorkbench() {
   }
   const changed = response && JSON.stringify(settings) !== JSON.stringify(lastSettings)
   return <div className="stock-workbench">
-    <section className="intro"><div><p className="eyebrow">STRATEGY LAB · STOCKS</p><h1>Test the idea.<br />Measure the outcome.</h1></div><p>Explore a moving-average strategy on IBKR daily history. Compare with buy-and-hold, inspect drawdowns and understand every simulated fill.</p></section>
+    <section className="intro"><div><p className="eyebrow">STRATEGY LAB · STOCKS</p><h1>Test the idea.<br />Measure the outcome.</h1></div><p>Explore trend, momentum and mean-reversion strategies on IBKR daily history. Compare with buy-and-hold, inspect drawdowns and understand every simulated fill.</p></section>
     <div className="stock-mode"><span>Historical simulation</span><span>USD stocks · daily bars</span><span>No brokerage orders</span></div>
     <div className="stock-layout">
       <aside className="stock-sidebar">
@@ -71,12 +87,11 @@ export function StockWorkbench() {
         <form className="panel stock-form" onSubmit={run}>
           <h2><span className="stock-step">02</span> Algorithm</h2>
           <fieldset disabled={busy !== null}>
-            <label>Strategy<select value={settings.algorithm} onChange={e => setSettings({ ...settings, algorithm: e.target.value })}>{algorithms.length ? algorithms.map(a => <option key={a.id} value={a.id}>{a.name}</option>) : <option value="sma-long-cash">Loading algorithms…</option>}</select></label>
+            <label>Strategy<select value={settings.algorithm} onChange={e => selectAlgorithm(e.target.value)}>{algorithms.length ? algorithms.map(a => <option key={a.id} value={a.id}>{a.name}</option>) : <option value={settings.algorithm}>Loading algorithms…</option>}</select></label>
             {catalogError && <div role="alert" className="error">{catalogError} <button type="button" className="text-button" onClick={() => { setCatalogError(''); setCatalogAttempt(n => n + 1) }}>Retry</button></div>}
-            <p className="note">Hold shares when fast SMA &gt; slow SMA; otherwise hold cash. Signals execute at the next session’s open.</p>
+            {algorithm?.description && <p className="note">{algorithm.description}</p>}
             <div className="stock-input-pair">
-              <Numeric label="Fast SMA (sessions)" value={settings.fastWindow} min={1} max={499} step={1} set={v => setSettings({ ...settings, fastWindow: v })} />
-              <Numeric label="Slow SMA (sessions)" value={settings.slowWindow} min={2} max={500} step={1} set={v => setSettings({ ...settings, slowWindow: v })} />
+              {algorithm?.parameters.map(p => <Numeric key={`${algorithm.id}-${p.key}`} label={p.label} value={settings.parameters[p.key] ?? p.default} min={p.min} max={p.max} step={p.step} set={v => setParameter(p.key, v)} />)}
             </div>
             <Numeric label="Initial cash (USD)" value={settings.initialCash} min={1} max={1e9} step="any" set={v => setSettings({ ...settings, initialCash: v })} />
             <Numeric label="Entry allocation (%)" value={settings.allocation * 100} min={.01} max={100} step="any" set={v => setSettings({ ...settings, allocation: v / 100 })} />
@@ -84,7 +99,7 @@ export function StockWorkbench() {
               <Numeric label="Fees (bps / side)" value={settings.feeBps} min={0} max={1000} step="any" set={v => setSettings({ ...settings, feeBps: v })} />
               <Numeric label="Slippage (bps / side)" value={settings.slippageBps} min={0} max={1000} step="any" set={v => setSettings({ ...settings, slippageBps: v })} />
             </div>
-            <button className="primary" disabled={!history || !algorithms.length || busy !== null}>{busy === 'backtest' ? 'Running simulation…' : 'Run backtest'} <span>→</span></button>
+            <button className="primary" disabled={!history || !algorithm || busy !== null}>{busy === 'backtest' ? 'Running simulation…' : 'Run backtest'} <span>→</span></button>
           </fieldset>
           <p className="note">Load data once, then compare parameters on the same dataset for up to 30 minutes.</p>
         </form>
@@ -93,7 +108,7 @@ export function StockWorkbench() {
         {error && <div className="panel stock-message error" role="alert">{error}</div>}
         {history && <div className="panel stock-data" role="status"><strong>{history.symbol} <span>{history.primaryExchange} · conId {history.contractId}</span></strong><p>{history.bars.length} sessions · {history.bars[0].date} — {history.bars.at(-1)!.date}</p><small>{history.source} · fetched {new Date(history.fetchedAt).toLocaleString()}</small><small>{history.priceBasis}</small></div>}
         {changed && <div className="stock-stale" role="status">Parameters changed. The charts show the previous run; select Run backtest to update them.</div>}
-        {response && history ? <StockResults response={response} history={history} /> : <div className="panel stock-empty"><span className="stock-empty-icon">↗</span><p className="eyebrow">FROM MARKET DATA TO EVIDENCE</p><h2>{busy === 'history' ? 'Loading from IBKR…' : history ? 'Your data is ready.' : 'Start with a stock.'}</h2><p>{history ? 'Adjust the strategy parameters and run a backtest.' : 'Load daily history through your existing IBKR connection, then test the strategy on those prices.'}</p><div>01 Load history <span>→</span> 02 Set parameters <span>→</span> 03 Compare results</div></div>}
+        {response && history ? <StockResults response={response} history={history} algorithm={algorithms.find(a => a.id === response.result.strategy)} /> : <div className="panel stock-empty"><span className="stock-empty-icon">↗</span><p className="eyebrow">FROM MARKET DATA TO EVIDENCE</p><h2>{busy === 'history' ? 'Loading from IBKR…' : history ? 'Your data is ready.' : 'Start with a stock.'}</h2><p>{history ? 'Adjust the strategy parameters and run a backtest.' : 'Load daily history through your existing IBKR connection, then test the strategy on those prices.'}</p><div>01 Load history <span>→</span> 02 Set parameters <span>→</span> 03 Compare results</div></div>}
       </section>
     </div>
   </div>
@@ -101,44 +116,54 @@ export function StockWorkbench() {
 function Numeric({ label, value, min, max, step, set }: { label: string; value: number; min: number; max: number; step: number | 'any'; set: (v: number) => void }) {
   return <label>{label}<input required type="number" value={Number.isFinite(value) ? value : ''} min={min} max={max} step={step} onChange={e => set(e.target.valueAsNumber)} /></label>
 }
-function StockResults({ response, history }: { response: StockResponse; history: StockHistory }) {
+function StockResults({ response, history, algorithm }: { response: StockResponse; history: StockHistory; algorithm?: StockAlgorithm }) {
   const r = response.result
   const [index, setIndex] = useState(0)
   const cursor = Math.min(index, r.equity.length - 1)
   const selected = r.equity[cursor]
-  const fast = useMemo(() => movingAverage(history.bars, r.fastWindow), [history.bars, r.fastWindow])
-  const slow = useMemo(() => movingAverage(history.bars, r.slowWindow), [history.bars, r.slowWindow])
+  const overlays = useMemo(() => priceOverlays(r.strategy, r.parameters, history.bars), [r, history.bars])
+  const rsiValues = useMemo(() => r.strategy === 'rsi-mean-reversion' ? rsi(history.bars, r.parameters.rsiPeriod) : null, [r, history.bars])
   const dd = useMemo(() => drawdowns(r.equity, r.initialCash), [r])
+  const stats = useMemo(() => runStats(r.equity, r.trades, r.initialCash, r.warmupBars), [r])
   const dates = r.equity.map(e => e.date)
+  const parameterText = (algorithm ? algorithm.parameters.map(p => r.parameters[p.key]) : Object.values(r.parameters)).join(' / ')
   function download() {
     const blob = new Blob([JSON.stringify({ history, ...response }, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob); const a = document.createElement('a')
     a.href = url; a.download = `${history.symbol}-backtest.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
+  const metricRow = (rows: string[][]) => <div className="stock-metrics">{rows.map(([label, value, note]) => <article className="metric" key={label}><p>{label}</p><strong>{value}</strong><small>{note}</small></article>)}</div>
+  const priceSeries: Series[] = [{ name: 'Close', color: '#d9e2e6', values: history.bars.map(b => b.close) }, ...overlays]
   return <>
-    <div className="stock-run"><span>SMA {r.fastWindow} / {r.slowWindow} · {percent(r.allocation)} allocation · {r.feeBps} bp fees + {r.slippageBps} bp slippage</span><button className="text-button" onClick={download}>Export results ↓</button></div>
-    <div className="stock-metrics">{[
+    <div className="stock-run"><span>{algorithm?.name ?? r.strategy} · {parameterText} · {percent(r.allocation)} allocation · {r.feeBps} bp fees + {r.slippageBps} bp slippage</span><button className="text-button" onClick={download}>Export results ↓</button></div>
+    {metricRow([
       ['Final equity', money(r.finalEquity), `From ${money(r.initialCash)}`],
       ['Strategy return', percent(r.totalReturn), 'After simulated trading costs'],
       ['Buy & hold', percent(r.benchmarkReturn), 'Same start, allocation and entry costs'],
-      ['Maximum drawdown', percent(r.maxDrawdown), 'Daily close peak-to-trough'],
-    ].map(([label, value, note]) => <article className="metric" key={label}><p>{label}</p><strong>{value}</strong><small>{note}</small></article>)}</div>
+      ['Maximum drawdown', percent(r.maxDrawdown), `Daily close peak-to-trough · buy & hold ${percent(stats.benchmarkMaxDrawdown)}`],
+    ])}
+    {metricRow([
+      ['Sharpe ratio', ratio(stats.sharpe), `Buy & hold ${ratio(stats.benchmarkSharpe)} · daily returns, 0% risk-free`],
+      ['CAGR', optionalPercent(stats.cagr), `Buy & hold ${optionalPercent(stats.benchmarkCagr)} · annualised`],
+      ['Time in market', percent(stats.exposure), 'Sessions holding shares'],
+      ['Win rate', stats.closedTrades ? percent(stats.wins / stats.closedTrades) : '—', `${stats.closedTrades} closed round trips`],
+    ])}
     <SeriesChart title="Portfolio value" subtitle="Strategy vs buy-and-hold · USD" dates={dates} cursor={cursor} series={[
       { name: 'Strategy', color: '#c7ff58', values: r.equity.map(e => e.equity) },
       { name: 'Buy & hold', color: '#67d7ff', values: r.equity.map(e => e.benchmarkEquity) },
     ]} />
     <div className="panel stock-inspector"><label htmlFor="stock-date">Inspect session: <strong>{selected.date}</strong></label><input id="stock-date" type="range" min={0} max={r.equity.length - 1} value={cursor} onChange={e => setIndex(+e.target.value)} /><div><span>Equity <b>{money(selected.equity)}</b></span><span>Cash <b>{money(selected.cash)}</b></span><span>Shares <b>{number(selected.shares)}</b></span><span>Drawdown <b>{dd[cursor].toFixed(2)}%</b></span></div></div>
-    <SeriesChart title="Price and moving averages" subtitle={`Split-adjusted close · SMA ${r.fastWindow} / ${r.slowWindow}`} dates={dates} cursor={cursor} series={[
-      { name: 'Close', color: '#d9e2e6', values: history.bars.map(b => b.close) },
-      { name: `Fast ${r.fastWindow}`, color: '#c7ff58', values: fast },
-      { name: `Slow ${r.slowWindow}`, color: '#67d7ff', values: slow },
-    ]} />
+    <SeriesChart title="Price and indicators" subtitle={`Split-adjusted close${overlays.length ? ' · ' + overlays.map(o => o.name).join(' / ') : ''}`} dates={dates} cursor={cursor} series={priceSeries} />
+    {rsiValues && <SeriesChart title={`RSI(${r.parameters.rsiPeriod})`} subtitle="Relative strength index with entry and exit thresholds" dates={dates} cursor={cursor} series={[
+      { name: 'RSI', color: '#d9e2e6', values: rsiValues },
+      { name: `Entry below ${r.parameters.entryBelow}`, color: '#c7ff58', values: dates.map(() => r.parameters.entryBelow) },
+      { name: `Exit above ${r.parameters.exitAbove}`, color: '#ff7d79', values: dates.map(() => r.parameters.exitAbove) },
+    ]} />}
     <SeriesChart title="Drawdown" subtitle="Decline from previous equity peak · %" dates={dates} cursor={cursor} series={[{ name: 'Drawdown %', color: '#ff7d79', values: dd }]} />
     <section className="panel table-panel"><div className="panel-heading"><div><p className="eyebrow">SIMULATED FILLS</p><h2>{r.trades.length} fills · {money(r.totalFees)} fees</h2></div></div><p className="note">Historical simulations only. Open positions remain marked to the final close; no final liquidation is assumed.</p><div className="table-scroll stock-trades"><table><thead><tr><th>Signal close</th><th>Execution open</th><th>Side</th><th>Shares</th><th>Fill price</th><th>Fee</th></tr></thead><tbody>{r.trades.map((t, i) => <tr key={i}><td>{t.signalDate}</td><td>{t.executionDate}</td><td className={t.side === 'Buy' ? 'positive' : 'negative'}>{t.side}</td><td>{number(t.shares)}</td><td>{money(t.price)}</td><td>{money(t.fee)}</td></tr>)}{!r.trades.length && <tr><td colSpan={6}>No signals led to a fill in this period.</td></tr>}</tbody></table></div></section>
-    <p className="note">Price-return simulation: cash dividends, interest, taxes and market impact are excluded. Fractional adjusted shares are assumed. Repeatedly tuning parameters on this period can overfit; evaluate a separate period before drawing conclusions.</p>
+    <p className="note">Price-return simulation: cash dividends, interest, taxes and market impact are excluded. Fractional adjusted shares are assumed. Sharpe, CAGR and time in market are measured from the first session the strategy could trade. Repeatedly tuning parameters on this period can overfit; evaluate a separate period before drawing conclusions.</p>
   </>
 }
-type Series = { name: string; color: string; values: (number | null)[] }
 function SeriesChart({ title, subtitle, dates, series, cursor }: { title: string; subtitle: string; dates: string[]; series: Series[]; cursor: number }) {
   const values = series.flatMap(s => s.values.filter((n): n is number => n !== null))
   const low = Math.min(...values), high = Math.max(...values), pad = (high - low || Math.abs(high) || 1) * .08

@@ -7,9 +7,7 @@ public static class StockStrategyEndpoints
 {
     public static void MapStockStrategyEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/strategies", () => Results.Ok(new[] {
-            new { id = "sma-long-cash", name = "Moving average · long / cash", assetClass = "Stocks" }
-        }));
+        app.MapGet("/api/strategies", () => Results.Ok(StockStrategyCatalog.Algorithms));
         app.MapPost("/api/market-data/stocks/history", async Task<IResult> (
             StockHistoryRequest request, StockHistoryStore store, CancellationToken ct) =>
         {

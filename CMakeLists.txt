@@ -17,6 +17,9 @@ endif()
 
 
 project(QuantEngine LANGUAGES CXX)
+if(MSVC)
+    add_compile_options(/EHsc)
+endif()
 
 add_subdirectory(QuantEngine)
 add_subdirectory(apps/QuantConsole)

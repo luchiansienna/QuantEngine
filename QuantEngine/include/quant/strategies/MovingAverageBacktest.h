@@ -19,10 +19,14 @@ struct Trade {
 };
 struct EquityPoint { std::string date; double cash, shares, equity, benchmarkEquity; };
 struct BacktestResult {
+    std::size_t warmupBars = 0;
     double finalEquity, totalReturn, benchmarkReturn, maxDrawdown, totalFees;
     std::vector<Trade> trades;
     std::vector<EquityPoint> equity;
 };
+class Strategy;
+struct ExecutionSettings { double initialCash; double allocation; double feeBps; double slippageBps; };
+BacktestResult backtest(const std::vector<DailyBar>& bars, Strategy& strategy, const ExecutionSettings& settings);
 // Strict date,open,close CSV. All prices must use a consistent adjustment basis.
 std::vector<DailyBar> readDailyBars(std::istream& input);
 // Long/cash regime: fast SMA > slow SMA. Signals at close, fills next open.

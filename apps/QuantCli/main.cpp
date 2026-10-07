@@ -326,7 +326,7 @@ int main(int argc, char* argv[])
                 while (stream >> token) tokens.push_back(token);
                 if (tokens.empty()) throw std::invalid_argument("Empty request.");
 
-                if (tokens.front() == "stock-backtest")
+                if (tokens.front() == "stock-backtest" || tokens.front() == "stock-backtest-v2")
                 {
                     writeBacktestStream(tokens, std::cout);
                 }
