@@ -1,11 +1,12 @@
-using System.Collections.Concurrent;
-using System.Reflection;
 using IBApi;
 using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Reflection;
 
 namespace QuantWebApi.MarketData;
 
-public sealed class IbkrMarketDataClient : IAsyncDisposable
+public sealed partial class IbkrMarketDataClient : IAsyncDisposable
 {
     private readonly IbkrOptions _options;
     private readonly ILogger<IbkrMarketDataClient> _logger;
@@ -297,55 +298,128 @@ public sealed class IbkrMarketDataClient : IAsyncDisposable
         }
     }
 
-    private async Task<IbkrMarketSnapshot>
-        RequestMarketSnapshotAsync(
-            Contract contract,
-            CancellationToken cancellationToken)
+    private async Task<IbkrMarketSnapshot> RequestMarketSnapshotAsync(
+    Contract contract,
+    CancellationToken cancellationToken)
     {
         var requestId = NextRequestId();
+        var symbol = string.IsNullOrWhiteSpace(contract.LocalSymbol)
+            ? contract.Symbol
+            : contract.LocalSymbol;
 
-        var pendingRequest =
-            new MarketDataRequest(contract);
+        var stopwatch = Stopwatch.StartNew();
+        var pendingRequest = new MarketDataRequest(contract);
 
-        if (!_marketDataRequests.TryAdd(
-                requestId,
-                pendingRequest))
+        if (!_marketDataRequests.TryAdd(requestId, pendingRequest))
         {
+            _logger.LogError(
+                "Could not register IBKR market-data request {RequestId} for {Symbol}.",
+                requestId,
+                symbol);
+
             throw new IbkrException(
                 "Could not register the IBKR market-data request.");
         }
 
         try
         {
+            _logger.LogInformation(
+                "Starting IBKR market-data request {RequestId}: " +
+                "Symbol={Symbol}, ConId={ConId}, SecType={SecType}, " +
+                "Exchange={Exchange}, Currency={Currency}, " +
+                "RequestedMarketDataType={MarketDataType}, " +
+                "TimeoutSeconds={TimeoutSeconds}.",
+                requestId,
+                symbol,
+                contract.ConId,
+                contract.SecType,
+                contract.Exchange,
+                contract.Currency,
+                _options.MarketDataType,
+                _options.SnapshotTimeoutSeconds);
+
             _client!.reqMktData(
                 requestId,
                 contract,
                 string.Empty,
-                false,
+                true,
                 false,
                 []);
 
-            await pendingRequest.Completed.Task.WaitAsync(
-                TimeSpan.FromSeconds(
-                    _options.SnapshotTimeoutSeconds),
-                cancellationToken);
-
-            return pendingRequest.CreateSnapshot();
-        }
-        catch (TimeoutException)
-        {
-            _client?.cancelMktData(
+            _logger.LogDebug(
+                "IBKR market-data request {RequestId} sent; awaiting price callbacks.",
                 requestId);
 
+            await pendingRequest.Completed.Task.WaitAsync(
+                TimeSpan.FromSeconds(_options.SnapshotTimeoutSeconds),
+                cancellationToken);
+
+            var snapshot = pendingRequest.CreateSnapshot();
+
+            _logger.LogInformation(
+                "IBKR snapshot completed for {Symbol}: " +
+                "RequestId={RequestId}, ElapsedMs={ElapsedMs}.",
+                symbol,
+                requestId,
+                stopwatch.ElapsedMilliseconds);
+
+            return snapshot;
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogInformation(
+                "IBKR snapshot cancelled for {Symbol}: " +
+                "RequestId={RequestId}, ElapsedMs={ElapsedMs}.",
+                symbol,
+                requestId,
+                stopwatch.ElapsedMilliseconds);
+
+            throw;
+        }
+        catch (TimeoutException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "IBKR snapshot timed out for {Symbol}: " +
+                "RequestId={RequestId}, ElapsedMs={ElapsedMs}, " +
+                "RequestedMarketDataType={MarketDataType}, Connected={Connected}.",
+                symbol,
+                requestId,
+                stopwatch.ElapsedMilliseconds,
+                _options.MarketDataType,
+                _client?.IsConnected() == true);
+
             throw new TimeoutException(
-                $"IBKR did not complete the snapshot for " +
-                $"{contract.LocalSymbol ?? contract.Symbol}.");
+                $"IBKR did not complete the snapshot for {symbol} " +
+                $"within {_options.SnapshotTimeoutSeconds} seconds " +
+                $"(request {requestId}).",
+                exception);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "IBKR snapshot failed for {Symbol}: " +
+                "RequestId={RequestId}, ElapsedMs={ElapsedMs}.",
+                symbol,
+                requestId,
+                stopwatch.ElapsedMilliseconds);
+
+            throw;
         }
         finally
         {
             try
             {
-                _client?.cancelMktData(requestId);
+                if (_client?.IsConnected() == true)
+                {
+                    _client.cancelMktData(requestId);
+
+                    _logger.LogDebug(
+                        "Sent cancellation for IBKR market-data request {RequestId}.",
+                        requestId);
+                }
             }
             catch (Exception exception)
             {
@@ -355,9 +429,11 @@ public sealed class IbkrMarketDataClient : IAsyncDisposable
                     requestId);
             }
 
-            _marketDataRequests.TryRemove(
-                requestId,
-                out _);
+            _marketDataRequests.TryRemove(requestId, out _);
+
+            _logger.LogDebug(
+                "Removed IBKR market-data request {RequestId} from pending requests.",
+                requestId);
         }
     }
 
@@ -532,6 +608,17 @@ public sealed class IbkrMarketDataClient : IAsyncDisposable
                 case "error":
                     HandleError(
                         arguments);
+                    break;
+                case "historicalData":
+                    HandleHistoricalBar(arguments);
+                    break;
+
+                case "historicalDataEnd":
+                    if (arguments.FirstOrDefault() is int historyId &&
+                        _historyRequests.TryGetValue(historyId, out var history))
+                    {
+                        history.Completed.TrySetResult();
+                    }
                     break;
             }
         }
@@ -735,7 +822,10 @@ public sealed class IbkrMarketDataClient : IAsyncDisposable
             marketDataRequest.Completed.TrySetException(
                 exception);
         }
-
+        if (_historyRequests.TryGetValue(requestId, out var historyRequest))
+        {
+            historyRequest.Completed.TrySetException(exception);
+        }
         if (requestId < 0)
         {
             _connected.TrySetException(
@@ -761,6 +851,10 @@ public sealed class IbkrMarketDataClient : IAsyncDisposable
         {
             request.Completed.TrySetException(
                 exception);
+        }
+        foreach (var request in _historyRequests.Values)
+        {
+            request.Completed.TrySetException(exception);
         }
     }
 
