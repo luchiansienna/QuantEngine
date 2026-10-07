@@ -46,12 +46,15 @@ public sealed record StockBacktestRequest(string DatasetId, string Algorithm = "
         var warmup = Algorithm switch {
             "sma-long-cash" => p["slowWindow"],
             "momentum-long-cash" => p["lookback"] + 1,
+            "martingale-long-cash" => 1,
             _ => Math.Max(p["trendWindow"], p["rsiPeriod"] + 1)
         };
         if (Algorithm == "sma-long-cash" && p["fastWindow"] >= p["slowWindow"])
             throw new ArgumentException("Require fast SMA < slow SMA.");
         if (Algorithm == "rsi-mean-reversion" && p["entryBelow"] >= p["exitAbove"])
             throw new ArgumentException("Require entry RSI < exit RSI.");
+        if (Algorithm == "martingale-long-cash" && p["baseStakePct"] > Allocation * 100 + 1e-10)
+            throw new ArgumentException("Base stake must not exceed Maximum stake (%).");
         if (bars <= warmup || bars > 5000) throw new ArgumentException("Not enough bars for strategy warm-up, or more than 5000 bars.");
         if (!double.IsFinite(InitialCash) || InitialCash < 1 || InitialCash > 1e9 ||
             !double.IsFinite(Allocation) || Allocation <= 0 || Allocation > 1 ||

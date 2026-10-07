@@ -4,6 +4,36 @@
 #include <quant/strategies/Strategy.h>
 
 namespace quant::strategies {
+// Repeated long round trips. Double the dollar stake after a net loss, reset
+// after a profit; a break-even trade leaves the level unchanged. No averaging down.
+class MartingaleStrategy final : public Strategy {
+public:
+    MartingaleStrategy(double baseStakePct = 1, std::size_t holdingSessions = 5,
+        std::size_t maxDoublings = 6)
+        : baseFraction_(baseStakePct / 100), holdingSessions_(holdingSessions), maxDoublings_(maxDoublings) {
+        if (!std::isfinite(baseStakePct) || baseStakePct < .01 || baseStakePct > 100 ||
+            !holdingSessions || holdingSessions > 2000 || maxDoublings > 10)
+            throw std::invalid_argument("Require base stake 0.01-100%, holding 1-2000 sessions, and 0-10 doublings.");
+    }
+    std::size_t warmup() const override { return 1; }
+    bool onClose(const DailyBar&, bool inPosition) override {
+        if (!inPosition) { held_ = 0; return true; }
+        return ++held_ < holdingSessions_;
+    }
+    double entryBudget(double cash, double allocation) override {
+        if (baseFraction_ > allocation + 1e-12)
+            throw std::invalid_argument("Base stake must not exceed the maximum stake allocation.");
+        if (baseStake_ == 0) baseStake_ = cash * baseFraction_;
+        return std::min(baseStake_ * std::pow(2.0, static_cast<double>(level_)), cash * allocation);
+    }
+    void onRoundTripClosed(double netProfit, double cash) override {
+        if (netProfit < 0) level_ = std::min(level_ + 1, maxDoublings_);
+        else if (netProfit > 0) { level_ = 0; baseStake_ = cash * baseFraction_; }
+    }
+private:
+    double baseFraction_, baseStake_ = 0;
+    std::size_t holdingSessions_, maxDoublings_, level_ = 0, held_ = 0;
+};
 class SmaCrossStrategy final : public Strategy {
 public:
     SmaCrossStrategy(std::size_t fast, std::size_t slow)

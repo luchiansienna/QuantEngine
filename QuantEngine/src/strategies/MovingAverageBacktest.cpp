@@ -74,13 +74,20 @@ namespace quant::strategies {
         const double feeRate = s.feeBps / 10000, slip = s.slippageBps / 10000;
         const std::size_t benchmarkStart = strategy.warmup();
         result.warmupBars = benchmarkStart;
+        const double benchmarkBudget = strategy.entryBudget(s.initialCash, s.allocation);
+        require(std::isfinite(benchmarkBudget) && benchmarkBudget > 0 && benchmarkBudget <= s.initialCash,
+            "Invalid strategy entry budget.");
+        result.benchmarkAllocation = benchmarkBudget / s.initialCash;
+        double entryCost = 0;
         bool pendingLong = false;
         for (std::size_t i = 0; i < bars.size(); ++i) {
             const auto& bar = bars[i];
             // Only yesterday's decision is available at today's open.
             if (pendingLong && shares == 0) {
                 const double price = bar.open * (1 + slip);
-                const double budget = cash * s.allocation;
+                const double budget = strategy.entryBudget(cash, s.allocation);
+                require(std::isfinite(budget) && budget > 0 && budget <= cash, "Invalid strategy entry budget.");
+                entryCost = budget;
                 shares = budget / (price * (1 + feeRate)); // Fractional shares, no leverage.
                 const double fee = shares * price * feeRate;
                 cash -= budget;
@@ -90,14 +97,16 @@ namespace quant::strategies {
             else if (!pendingLong && shares > 0) {
                 const double price = bar.open * (1 - slip);
                 const double fee = shares * price * feeRate;
-                cash += shares * price - fee;
+                const double proceeds = shares * price - fee;
+                cash += proceeds;
                 result.totalFees += fee;
                 result.trades.push_back({ bars[i - 1].date, bar.date, false, shares, price, fee });
                 shares = 0;
+                strategy.onRoundTripClosed(proceeds - entryCost, cash);
             }
-            // Same first eligible execution day, allocation and entry costs as the strategy.
+            // Same first eligible execution day, initial stake and entry costs.
             if (i == benchmarkStart) {
-                const double budget = benchmarkCash * s.allocation;
+                const double budget = benchmarkBudget;
                 benchmarkShares = budget / (bar.open * (1 + slip) * (1 + feeRate));
                 benchmarkCash -= budget;
             }

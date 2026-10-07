@@ -14,6 +14,7 @@ export type StockTrade = { signalDate: string; executionDate: string; side: 'Buy
 export type StockEquity = { date: string; cash: number; shares: number; equity: number; benchmarkEquity: number }
 export type StockResult = {
   warmupBars: number
+  benchmarkAllocation: number
   strategy: string; parameters: Record<string, number>; initialCash: number; allocation: number
   feeBps: number; slippageBps: number; finalEquity: number; totalReturn: number
   benchmarkReturn: number; maxDrawdown: number; totalFees: number; trades: StockTrade[]; equity: StockEquity[]

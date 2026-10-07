@@ -20,6 +20,7 @@ inline void writeBacktestJson(const quant::strategies::ExecutionSettings& settin
         out << '"' << parameters[i].first << "\":" << parameters[i].second;
     }
     out << "},\"warmupBars\":" << result.warmupBars
+        << ",\"benchmarkAllocation\":" << result.benchmarkAllocation
         << ",\"initialCash\":" << settings.initialCash << ",\"allocation\":" << settings.allocation
         << ",\"feeBps\":" << settings.feeBps << ",\"slippageBps\":" << settings.slippageBps
         << ",\"finalEquity\":" << result.finalEquity << ",\"totalReturn\":" << result.totalReturn
@@ -97,7 +98,7 @@ inline void writeBacktestStream(const std::vector<std::string>& tokens, std::ost
         if (tokens.size() < 9) throw std::invalid_argument("Incomplete strategy request.");
         const auto& id = tokens[1];
         const auto parameterCount = count(tokens[2]);
-        const std::size_t expected = id == "sma-long-cash" ? 2 : id == "momentum-long-cash" ? 1 : id == "rsi-mean-reversion" ? 4 : 0;
+        const std::size_t expected = id == "sma-long-cash" ? 2 : id == "momentum-long-cash" ? 1 : id == "rsi-mean-reversion" ? 4 : id == "martingale-long-cash" ? 3 : 0;
         if (!expected || parameterCount != expected || tokens.size() < 8 + expected)
             throw std::invalid_argument("Unsupported strategy or incorrect parameter count.");
         std::unique_ptr<Strategy> strategy;
@@ -110,6 +111,14 @@ inline void writeBacktestStream(const std::vector<std::string>& tokens, std::ost
             const auto lookback = count(tokens[3]);
             strategy = std::make_unique<MomentumStrategy>(lookback);
             parameters = {{"lookback", static_cast<double>(lookback)}};
+        } else if (id == "martingale-long-cash") {
+            const double base = number(tokens[3]);
+            const auto holding = count(tokens[4]);
+            const double doublings = number(tokens[5]);
+            if (doublings < 0 || doublings > 10 || doublings != std::floor(doublings))
+                throw std::invalid_argument("Doublings must be a whole number from 0 to 10.");
+            strategy = std::make_unique<MartingaleStrategy>(base, holding, static_cast<std::size_t>(doublings));
+            parameters = {{"baseStakePct", base}, {"holdingSessions", static_cast<double>(holding)}, {"maxDoublings", doublings}};
         } else {
             const auto period = count(tokens[3]), trend = count(tokens[4]);
             const auto entry = number(tokens[5]), exit = number(tokens[6]);

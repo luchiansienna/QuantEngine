@@ -94,7 +94,7 @@ export function StockWorkbench() {
               {algorithm?.parameters.map(p => <Numeric key={`${algorithm.id}-${p.key}`} label={p.label} value={settings.parameters[p.key] ?? p.default} min={p.min} max={p.max} step={p.step} set={v => setParameter(p.key, v)} />)}
             </div>
             <Numeric label="Initial cash (USD)" value={settings.initialCash} min={1} max={1e9} step="any" set={v => setSettings({ ...settings, initialCash: v })} />
-            <Numeric label="Entry allocation (%)" value={settings.allocation * 100} min={.01} max={100} step="any" set={v => setSettings({ ...settings, allocation: v / 100 })} />
+            <Numeric label={settings.algorithm === 'martingale-long-cash' ? 'Maximum stake (%)' : 'Entry allocation (%)'} value={settings.allocation * 100} min={.01} max={100} step="any" set={v => setSettings({ ...settings, allocation: v / 100 })} />
             <div className="stock-input-pair">
               <Numeric label="Fees (bps / side)" value={settings.feeBps} min={0} max={1000} step="any" set={v => setSettings({ ...settings, feeBps: v })} />
               <Numeric label="Slippage (bps / side)" value={settings.slippageBps} min={0} max={1000} step="any" set={v => setSettings({ ...settings, slippageBps: v })} />
@@ -135,11 +135,11 @@ function StockResults({ response, history, algorithm }: { response: StockRespons
   const metricRow = (rows: string[][]) => <div className="stock-metrics">{rows.map(([label, value, note]) => <article className="metric" key={label}><p>{label}</p><strong>{value}</strong><small>{note}</small></article>)}</div>
   const priceSeries: Series[] = [{ name: 'Close', color: '#d9e2e6', values: history.bars.map(b => b.close) }, ...overlays]
   return <>
-    <div className="stock-run"><span>{algorithm?.name ?? r.strategy} · {parameterText} · {percent(r.allocation)} allocation · {r.feeBps} bp fees + {r.slippageBps} bp slippage</span><button className="text-button" onClick={download}>Export results ↓</button></div>
+    <div className="stock-run"><span>{algorithm?.name ?? r.strategy} · {parameterText} · {percent(r.allocation)} {r.strategy === 'martingale-long-cash' ? 'maximum stake' : 'allocation'} · {r.feeBps} bp fees + {r.slippageBps} bp slippage</span><button className="text-button" onClick={download}>Export results ↓</button></div>
     {metricRow([
       ['Final equity', money(r.finalEquity), `From ${money(r.initialCash)}`],
       ['Strategy return', percent(r.totalReturn), 'After simulated trading costs'],
-      ['Buy & hold', percent(r.benchmarkReturn), 'Same start, allocation and entry costs'],
+      ['Buy & hold', percent(r.benchmarkReturn), `Same start and entry costs · ${percent(r.benchmarkAllocation ?? r.allocation)} initial allocation`],
       ['Maximum drawdown', percent(r.maxDrawdown), `Daily close peak-to-trough · buy & hold ${percent(stats.benchmarkMaxDrawdown)}`],
     ])}
     {metricRow([

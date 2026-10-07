@@ -20,6 +20,7 @@ struct Trade {
 struct EquityPoint { std::string date; double cash, shares, equity, benchmarkEquity; };
 struct BacktestResult {
     std::size_t warmupBars = 0;
+    double benchmarkAllocation = 0;
     double finalEquity, totalReturn, benchmarkReturn, maxDrawdown, totalFees;
     std::vector<Trade> trades;
     std::vector<EquityPoint> equity;
