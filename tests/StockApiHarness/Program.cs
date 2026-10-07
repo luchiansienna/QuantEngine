@@ -13,7 +13,7 @@ var bars = Enumerable.Range(0, 250).Select(i => new StockBar(
 var catalogJson = JsonSerializer.Serialize(StockStrategyCatalog.Algorithms,
     new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 using (var catalog = JsonDocument.Parse(catalogJson)) {
-    Check(catalog.RootElement.GetArrayLength() == 3, "Catalog size");
+    Check(catalog.RootElement.GetArrayLength() == 4, "Catalog size");
     foreach (var item in catalog.RootElement.EnumerateArray())
         Check(item.GetProperty("parameters").GetArrayLength() > 0 && item.GetProperty("description").GetString()!.Length > 0,
             "Catalog contract");
@@ -46,6 +46,11 @@ Reject(new("dataset", Parameters: new() { ["typo"] = 1 }));
 Reject(new("dataset", "momentum-long-cash", Parameters: new() { ["lookback"] = 0 }));
 Reject(new("dataset", "rsi-mean-reversion", Parameters: new() { ["entryBelow"] = 80, ["exitAbove"] = 70 }));
 Reject(new("dataset", InitialCash: double.NaN));
+Reject(new("dataset", "martingale-long-cash", Parameters: new() { ["maxDoublings"] = 11 }));
+Reject(new("dataset", "martingale-long-cash", Parameters: new() { ["maxDoublings"] = 1.5 }));
+Reject(new("dataset", "martingale-long-cash", Parameters: new() { ["holdingSessions"] = 0 }));
+Reject(new("dataset", "martingale-long-cash", Allocation: .01, Parameters: new() { ["baseStakePct"] = 2 }));
+new StockBacktestRequest("dataset", "martingale-long-cash", Parameters: new() { ["maxDoublings"] = 0 }).Validate(250);
 var legacy = new StockBacktestRequest("dataset", FastWindow: 10, SlowWindow: 30).ToCommand(bars);
 Check(legacy.StartsWith("stock-backtest-v2 sma-long-cash 2 10 30 "), "Legacy request compatibility");
-Console.WriteLine("Stock API checks passed" + (args.Length == 1 ? " with all three C++ strategies" : ""));
+Console.WriteLine("Stock API checks passed" + (args.Length == 1 ? " with all four C++ strategies" : ""));

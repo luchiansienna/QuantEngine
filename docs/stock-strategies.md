@@ -2,7 +2,7 @@
 
 The dashboard reads strategy descriptions, parameter bounds and defaults from
 `GET /api/strategies`. The catalog includes SMA long/cash, time-series momentum
-long/cash, and RSI mean reversion. A stale API catalog displays a retryable error
+long/cash, RSI mean reversion, and capped martingale. A stale API catalog displays a retryable error
 instead of crashing the React page.
 
 Backtest requests use `algorithm` and a `parameters` object, plus execution
@@ -28,6 +28,27 @@ All strategies decide at the close and execute at the next open. The benchmark
 enters at the first eligible execution session with the same allocation and entry
 costs. Results include `warmupBars`, used to exclude warm-up sessions from metrics.
 Cash dividends, cash interest and taxes are excluded.
+
+## Martingale long/cash
+
+This is trade-by-trade loss doubling, not averaging down an open position.
+It enters at the next open, holds for `holdingSessions` closes, and exits at the
+following open. It then signals another entry for the next session. Defaults:
+`baseStakePct=1`, `holdingSessions=5`, and `maxDoublings=6`.
+
+The dollar base stake is fixed during a losing sequence. Each net realized loss
+(including fees and slippage) doubles the next stake, up to `maxDoublings`.
+At the cap it repeats the capped stake until a profit resets the level and
+recalculates the base stake from current cash. Break-even keeps the level.
+Every stake includes entry fees and is capped by available cash times the shared
+allocation setting, labelled **Maximum stake (%)** for this strategy. Base stake
+cannot exceed this cap. There is no borrowing or short selling.
+
+Buy-and-hold starts with the same base stake, rather than the maximum stake cap.
+The result reports `benchmarkAllocation` explicitly. Subsequent martingale
+escalation increases capital at risk, so compare drawdowns alongside returns.
+An open final position stays marked to the last close and does not trigger a reset.
+Doubling the stake does not guarantee recovery: stock gains and losses vary in size.
 
 ## Applying the update
 

@@ -15,6 +15,11 @@ public static class StockStrategyCatalog
         new("rsi-mean-reversion", "RSI mean reversion", "Stocks",
             "Buy when RSI is below entry and price is above its trend SMA. Exit when RSI exceeds the exit threshold, at next open.",
             [new("rsiPeriod", "RSI period", 2, 1, 100), new("trendWindow", "Trend SMA (sessions)", 200, 1, 2000),
-             new("entryBelow", "Entry RSI below", 10, .01, 99.99, .01), new("exitAbove", "Exit RSI above", 70, .01, 99.99, .01)])
+             new("entryBelow", "Entry RSI below", 10, .01, 99.99, .01), new("exitAbove", "Exit RSI above", 70, .01, 99.99, .01)]),
+        new("martingale-long-cash", "Martingale · long / cash", "Stocks",
+            "Repeat long trades for the selected holding period. Double the stake after a net loss and reset after a profit; break-even keeps the level. Stay at the doubling cap until a profit. Stakes are capped by available cash and Maximum stake (%). Buy & hold uses the initial base stake. Signals execute next open.",
+            [new("baseStakePct", "Base stake (%)", 1, .01, 100, .01),
+             new("holdingSessions", "Holding period (sessions)", 5, 1, 2000),
+             new("maxDoublings", "Maximum doublings", 6, 0, 10)])
     ];
 }

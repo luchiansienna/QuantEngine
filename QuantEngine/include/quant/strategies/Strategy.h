@@ -12,6 +12,9 @@ public:
     // Number of closes needed for a valid decision; also first eligible fill index.
     virtual std::size_t warmup() const = 0;
     virtual bool onClose(const DailyBar& bar, bool inPosition) = 0;
+    virtual double entryBudget(double cash, double allocation) { return cash * allocation; }
+    // Net realized profit includes entry/exit fees and slipped fill prices.
+    virtual void onRoundTripClosed(double /*netProfit*/, double /*cash*/) {}
 };
 class RollingWindow {
 public:
