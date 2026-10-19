@@ -1,5 +1,10 @@
 # Fundamentals and investor expectations
 
+The React dashboard now includes **Fundamentals** and **Investor expectations**
+tabs with editable sample inputs, optional comparisons and formatted results.
+See the [dashboard run instructions](../apps/quant-dashboard/README.md) to launch
+the app. The forms use the same endpoints and conventions documented below.
+
 `modules/QuantEngine.Fundamentals` and `modules/QuantEngine.InvestorExpectations`
 are reusable .NET 8 libraries. The existing ASP.NET API references them directly;
 these calculations do not use IBKR, `QuantCli`, CMake, or a market-data network call.

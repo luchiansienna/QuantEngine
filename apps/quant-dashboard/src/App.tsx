@@ -9,6 +9,9 @@ import './App.css'
 import { CurveEditor, CurveResults, initialCurve } from './CurvePanel'
 import { TermHelp } from './TermHelp'
 import { OptionsWorkbench } from './OptionsWorkbench'
+import { EquityWorkbench } from './EquityWorkbench'
+
+type Workbench = 'bond' | 'options' | 'risk' | 'stocks' | 'portfolio' | 'fundamentals' | 'expectations'
 
 const defaults: BondAnalysisRequest = {
   faceValue: 1000, couponRate: .05, maturityYears: 5, paymentsPerYear: 2,
@@ -18,7 +21,12 @@ const fmt = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 4 })
 const signed = (value: number) => `${value > 0 ? '+' : ''}${fmt.format(value)}`
 
 export default function App() {
-  const [active, setActive] = useState<'bond' | 'options' | 'risk' | 'stocks' | 'portfolio'>('bond')
+  const [active, setActive] = useState<Workbench>('bond')
+  useEffect(() => {
+    const titles: Record<Workbench, string> = { bond: 'Bond Risk Workbench', options: 'Options', risk: 'Credit & Market Risk',
+      stocks: 'Stock Strategies', portfolio: 'Portfolio Frontier', fundamentals: 'Fundamentals', expectations: 'Investor Expectations' }
+    document.title = `${titles[active]} | QuantEngine`
+  }, [active])
   const [input, setInput] = useState(defaults)
   const [useCurve, setUseCurve] = useState(false)
   const [curve, setCurve] = useState(initialCurve)
@@ -44,7 +52,7 @@ export default function App() {
   return <div className="shell">
     <Header active={active} onChange={setActive} />
     <main>
-      {active === 'portfolio' ? <PortfolioWorkbench /> : active === 'stocks' ? <StockWorkbench /> : active === 'risk' ? <RiskWorkbench /> : active === 'options' ? <OptionsWorkbench /> : <>
+      {active === 'fundamentals' || active === 'expectations' ? <EquityWorkbench key={active} mode={active} /> : active === 'portfolio' ? <PortfolioWorkbench /> : active === 'stocks' ? <StockWorkbench /> : active === 'risk' ? <RiskWorkbench /> : active === 'options' ? <OptionsWorkbench /> : <>
       <section className="intro"><div><p className="eyebrow">FIXED INCOME LAB</p><h1>Bond Risk Workbench</h1></div><p>Price a fixed-rate bond in the C++ engine and explore how its value responds to parallel yield shocks.</p></section>
       <div className="workspace">
         <form className="panel controls" onSubmit={submit}>
@@ -67,8 +75,12 @@ export default function App() {
   </div>
 }
 
-function Header({ active, onChange }: { active: 'bond' | 'options' | 'risk' | 'stocks' | 'portfolio'; onChange: (tab: 'bond' | 'options' | 'risk' | 'stocks' | 'portfolio') => void }) {
-  return <header className="topbar"><div className="brand"><b>Q</b><strong>QuantEngine</strong></div><nav aria-label="Workbench"><button className={active === 'bond' ? 'active' : ''} onClick={() => onChange('bond')}>Bond risk</button><button className={active === 'options' ? 'active' : ''} onClick={() => onChange('options')}>Options</button><button className={active === 'risk' ? 'active' : ''} onClick={() => onChange('risk')}>Credit & market risk</button><button className={active === 'stocks' ? 'active' : ''} onClick={() => onChange('stocks')}>Stock strategies</button><button className={active === 'portfolio' ? 'active' : ''} onClick={() => onChange('portfolio')}>Portfolio frontier</button></nav><div className="engine"><i /> C++ engine via .NET 8</div></header>
+function Header({ active, onChange }: { active: Workbench; onChange: (tab: Workbench) => void }) {
+  const tabs: [Workbench, string][] = [['bond', 'Bond risk'], ['options', 'Options'], ['risk', 'Credit & market risk'],
+    ['stocks', 'Stock strategies'], ['portfolio', 'Portfolio frontier'], ['fundamentals', 'Fundamentals'], ['expectations', 'Investor expectations']]
+  return <header className="topbar"><div className="brand"><b>Q</b><strong>QuantEngine</strong></div><nav aria-label="Workbench">
+    {tabs.map(([id, label]) => <button key={id} aria-current={active === id ? 'page' : undefined} className={active === id ? 'active' : ''} onClick={() => onChange(id)}>{label}</button>)}
+    </nav></header>
 }
 
 type FieldProps = { label: string; hint: string; value: number; min: number; max?: number; step: number | "any"; onChange: (value: number) => void }

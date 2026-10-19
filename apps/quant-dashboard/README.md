@@ -18,6 +18,36 @@ Open `http://localhost:5173`. The development server proxies `/api` requests to 
 
 Run `npm run build` to create the production bundle in `dist/`.
 
+## Fundamentals and investor expectations
+
+The **Fundamentals** and **Investor expectations** navigation buttons open forms
+that call the equity analysis API directly. Start the updated API and dashboard
+as above, open either tab, and select **Run analysis** to try the prefilled sample.
+No PowerShell requests or native pricing worker are needed for these two analyses.
+The full API still requires its existing IBKR DLL configuration to build.
+
+- Fundamentals accepts statement dates, financial figures and optional market
+  capitalization. Enable the prior-year comparison for year-over-year growth.
+- Investor expectations accepts analyst rows with dated EPS estimates and optional
+  price targets. Add or remove analysts, and optionally enable previous-consensus
+  comparison and reported earnings. Supply a spot price for target upside.
+- Use **Load sample / reset** to restore the examples. Blank optional numbers are
+  sent as null; required EPS cannot be blank. Missing or undefined factors display
+  their reason. Changing inputs marks existing results as needing a rerun; failed
+  requests clear the previous result and display the API's validation message.
+
+These are manual-input research forms; they do not fetch statements or analyst
+estimates automatically. Values use consistent currency and share units. Returns
+are not annualized, and target upside is not a forecast. Full formulas and API
+contracts are in [equity-analysis.md](../../docs/equity-analysis.md).
+
+If the API runs on a different port, set `QUANT_API_URL` before starting Vite:
+
+```powershell
+$env:QUANT_API_URL = 'http://localhost:5080'
+npm run dev
+```
+
 ## Portfolio frontier
 
 Open **Portfolio frontier** to analyse 2–8 holdings. The initial list includes ADBE, SPY, TSLA, AMZN, ANET and AMD with their primary exchanges. Load 1–5 years from the existing IBKR history endpoint, or select multiple JSON files exported from Stock strategies. Choose **Strategy equity curves** before importing to optimise the historical strategies instead of stock prices. A new import replaces the previous set.
