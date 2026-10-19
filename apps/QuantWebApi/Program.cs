@@ -1,5 +1,6 @@
 using QuantWebApi.Strategies;
 using QuantWebApi.Risk;
+using QuantWebApi.EquityAnalysis;
 using QuantWebApi;
 using QuantWebApi.MarketData;
 
@@ -131,6 +132,7 @@ app.MapGet(
         }
     });
 app.MapRiskEndpoints();
+app.MapEquityAnalysisEndpoints();
 app.MapStockStrategyEndpoints();
 app.MapFallbackToFile("index.html");
 

@@ -1,5 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <ItemGroup>
+    <ProjectReference Include="../../modules/QuantEngine.Fundamentals/QuantEngine.Fundamentals.csproj" />
+    <ProjectReference Include="../../modules/QuantEngine.InvestorExpectations/QuantEngine.InvestorExpectations.csproj" />
+  </ItemGroup>
 	<Import
 	  Project="QuantWebApi.local.props"
 	  Condition="Exists('QuantWebApi.local.props')" />
