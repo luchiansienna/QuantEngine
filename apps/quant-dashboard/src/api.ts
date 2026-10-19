@@ -100,3 +100,10 @@ export async function stockRequest<T>(path: string, body?: unknown, signal?: Abo
     body: body === undefined ? undefined : JSON.stringify(body), signal,
   }), 'The stock strategy request failed.')
 }
+
+export async function analyseEquity<T>(path: '/api/fundamentals/analyse' | '/api/investor-expectations/analyse', request: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request),
+  })
+  return readResponse<T>(response, 'Equity analysis is unavailable. Restart the app and try again.')
+}
