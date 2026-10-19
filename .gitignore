@@ -17,3 +17,7 @@
 /tests/StockApiHarness/obj
 /tests/StockApiHarness/bin
 /Untitled.ipynb
+/modules/**/bin/
+/modules/**/obj/
+/tests/EquityAnalysisHarness/bin/
+/tests/EquityAnalysisHarness/obj/
